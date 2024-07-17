@@ -25,5 +25,9 @@
     "@types/node": "^20.14.10",
     "ast-types": "^0.14.2",
     "jscodeshift": "^0.16.1"
+  },
+  "dependencies": {
+    "@effect/schema": "^0.68.25",
+    "effect": "^3.5.5"
   }
 }

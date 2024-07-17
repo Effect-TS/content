@@ -141,6 +141,13 @@ importers:
         version: 1.6.0(@edge-runtime/vm@4.0.0)(@types/node@20.14.10)(@vitest/browser@1.6.0)(happy-dom@14.12.3)(terser@5.31.2)
 
   packages/core:
+    dependencies:
+      '@effect/schema':
+        specifier: ^0.68.25
+        version: 0.68.25(effect@3.5.5)
+      effect:
+        specifier: ^3.5.5
+        version: 3.5.5
     devDependencies:
       '@types/jscodeshift':
         specifier: ^0.11.11
@@ -906,6 +913,11 @@ packages:
     resolution: {integrity: sha512-IRfvvwqQLabVTIw9hhIj4scOGIYPfa13QuEFv+dBWE6p47R+RR0J8jQvfDINFf0Vn80XXVjNRtZxkZpkKXLx2A==}
     engines: {node: '>=0.10.0'}
     hasBin: true
+
+  '@effect/schema@0.68.25':
+    resolution: {integrity: sha512-W0p9Ukka7bd0EiHisHJe4T0ynoUyYlXa6aJsgymrfKI6kiLeyy5luT1Jesh3ToZcfXajBEC8lwTBQD9cE1Zzdg==}
+    peerDependencies:
+      effect: ^3.5.5
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -1853,6 +1865,9 @@ packages:
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
+
+  effect@3.5.5:
+    resolution: {integrity: sha512-AFsmXMUTwASzzfpubZB5Ro4dqIDFVCf5WV6FtUsKlr1hncECaAQ63OVIMkvilq7CkJMOZzHJKNJrkwKeCpyE2w==}
 
   electron-to-chromium@1.4.827:
     resolution: {integrity: sha512-VY+J0e4SFcNfQy19MEoMdaIcZLmDCprqvBtkii1WTCTQHpRvf5N8+3kTYCgL/PcntvwQvmMJWTuDPsq+IlhWKQ==}
@@ -4993,6 +5008,11 @@ snapshots:
       repeat-string: 1.6.1
       strip-color: 0.1.0
 
+  '@effect/schema@0.68.25(effect@3.5.5)':
+    dependencies:
+      effect: 3.5.5
+      fast-check: 3.20.0
+
   '@esbuild/aix-ppc64@0.21.5':
     optional: true
 
@@ -5930,6 +5950,8 @@ snapshots:
   dotenv@8.6.0: {}
 
   eastasianwidth@0.2.0: {}
+
+  effect@3.5.5: {}
 
   electron-to-chromium@1.4.827: {}
 
