@@ -12,10 +12,26 @@ export interface Document<
   in out Fields,
   in out Source extends DocumentSource<any>
 > extends Document.Proto<Fields, Source> {
+  /**
+   * The name of the document.
+   */
   readonly name: string
+  /**
+   * An optional description for the document.
+   */
   readonly description: Option.Option<string>
+  /**
+   * The document source.
+   */
   readonly source: Source
+  /**
+   * The schema for the fields of the document.
+   */
   readonly fields: Schema.Struct.Fields
+  /**
+   * The computed fields for the document.
+   */
+  readonly computedFields: ReadonlyArray<Record<string, Document.AnyComputedField>>
 }
 
 export declare namespace Document {
@@ -25,11 +41,15 @@ export declare namespace Document {
   > extends Pipeable {
     readonly [TypeId]: VarianceStruct<Fields>
 
-    readonly addComputedFields: <FieldSchemas extends Record<string, Schema.Schema.Any>>(
-      fields: HasDuplicateKeys<FieldSchemas, Fields> extends true ? ["Error: Field name already exists"] : {
-        [Name in keyof FieldSchemas]: ComputedField<Fields, FieldSchemas[Name], DocumentSource.Meta<Source>>
+    readonly addComputedFields: <ComputedFieldSchemas extends Record<string, Schema.Schema.Any>>(
+      fields: HasDuplicateKeys<ComputedFieldSchemas, Fields> extends true ? ["Error: Field name already exists"] : {
+        [Name in keyof ComputedFieldSchemas]: ComputedField<
+          Fields,
+          ComputedFieldSchemas[Name],
+          DocumentSource.Meta<Source>
+        >
       }
-    ) => Document<Schema.Simplify<MergeComputedFields<Fields, FieldSchemas>>, Source>
+    ) => Document<Schema.Simplify<MergeComputedFields<Fields, ComputedFieldSchemas>>, Source>
   }
 
   export interface VarianceStruct<in out Fields> {
@@ -45,6 +65,8 @@ export declare namespace Document {
     & {
       readonly [Name in keyof ComputedFieldSchemas]: Schema.Schema.Type<ComputedFieldSchemas[Name]>
     }
+
+  export type AnyComputedField = ComputedField<any, any, any>
 
   export interface ComputedField<
     Fields,
