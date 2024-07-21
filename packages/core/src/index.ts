@@ -4,13 +4,6 @@ import { Effect } from "effect"
 import type { Pipeable } from "effect/Pipeable"
 import type { Invariant } from "effect/Types"
 
-/*
----
-title: Welcome to Effect!
-...
----
-*/
-
 export const TypeId: unique symbol = Symbol.for("@effect/content/Document")
 
 export type TypeId = typeof TypeId
@@ -32,75 +25,59 @@ export declare namespace Document {
   > extends Pipeable {
     readonly [TypeId]: VarianceStruct<Fields>
 
-    // readonly addComputedField: <
-    //   Name extends string,
-    //   ResolverSchema extends Schema.Schema.Any
-    // >(
-    //   field: ComputedField<
-    //     Name,
-    //     Fields,
-    //     ResolverSchema,
-    //     Source extends DocumentSource<infer Meta> ? Meta : never
-    //   >
-    // ) => Document<
-    //   Schema.Simplify<
-    //     & Fields
-    //     & {
-    //       readonly [K in Name]: Schema.Schema.Type<ResolverSchema>
-    //     }
-    //   >,
-    //   Source
-    // >
-
-    readonly addComputedFields: <Computed extends Record<string, AnyComputedField>>(
-      fields: ExcludeDuplicateFields<Computed, Fields>
-    ) => Document<Fields & Computed, Source>
+    readonly addComputedFields: <FieldSchemas extends Record<string, Schema.Schema.Any>>(
+      fields: HasDuplicateKeys<FieldSchemas, Fields> extends true ? ["Error: Field name already exists"] : {
+        [Name in keyof FieldSchemas]: ComputedField<Fields, FieldSchemas[Name], DocumentSource.Meta<Source>>
+      }
+    ) => Document<Schema.Simplify<MergeComputedFields<Fields, FieldSchemas>>, Source>
   }
 
   export interface VarianceStruct<in out Fields> {
     readonly _Fields: Invariant<Fields>
   }
 
-  export type ExcludeDuplicateFields<Computed, Existing> = HasDuplicateKeys<Computed, Existing> extends true
-    ? [`ERROR: Field name already exists`]
-    : {}
-
   export type HasDuplicateKeys<T, U> = keyof T extends infer K ? K extends keyof U ? true
     : false
     : false
 
-  export type AnyComputedField = ComputedField<any, any, any, any>
+  export type MergeComputedFields<Fields, ComputedFieldSchemas> =
+    & Fields
+    & {
+      readonly [Name in keyof ComputedFieldSchemas]: Schema.Schema.Type<ComputedFieldSchemas[Name]>
+    }
 
   export interface ComputedField<
-    Name extends string,
-    ExistingFields,
+    Fields,
     ResolverSchema extends Schema.Schema.Any,
     SourceMeta
   > {
-    readonly name: ComputedFieldName<Name, ExistingFields>
     readonly description?: string
     readonly schema: ResolverSchema
     readonly resolve: (
-      fields: ExistingFields,
+      fields: Fields,
       meta: SourceMeta
     ) => Effect.Effect<
       Schema.Schema.Type<ResolverSchema>
     >
   }
-
-  export type ComputedFieldName<Name extends string, Fields> = Name extends keyof Fields ?
-    [`Error: Field name "${Name}" already exists`]
-    : Name
 }
 
 const SourceTypeId: unique symbol = Symbol.for("@effect/content/DocumentSource")
 
 type SourceTypeId = typeof SourceTypeId
 
-export interface DocumentSource<in out Meta> {
-  readonly [SourceTypeId]: {
+export interface DocumentSource<in out Meta> extends DocumentSource.Proto<Meta> {}
+
+export declare namespace DocumentSource {
+  export interface Proto<in out Meta> {
+    readonly [SourceTypeId]: VarianceStruct<Meta>
+  }
+
+  export interface VarianceStruct<in out Meta> {
     readonly _Meta: Invariant<Meta>
   }
+
+  export type Meta<Source> = Source extends DocumentSource<infer Meta> ? Meta : never
 }
 
 export interface FileSystemSource extends
@@ -136,41 +113,8 @@ export const Post = make({
   }
 }).addComputedFields({
   slug: {
-    name: "slug",
     description: "The title slug",
     schema: Schema.NonEmpty,
     resolve: (fields, sourceMeta) => Effect.succeed(fields.title.slice(0, 5))
   }
-  // foo: {
-  //   description: "The foo slug",
-  //   schema: Schema.NonEmpty,
-  //   resolve: (fields, sourceMeta) => Effect.succeed("FOO!")
-  // }
 })
-// .addComputedFields({
-// slug: {
-//   description: "The better title slug",
-//   schema: Schema.NonEmpty,
-//   resolve: (fields, sourceMeta) => Effect.succeed(fields.slug.slice(0, 2))
-// },
-// foo: {
-//   description: "The better title slug",
-//   schema: Schema.NonEmpty,
-//   resolve: (fields, sourceMeta) => Effect.succeed(fields.slug.slice(0, 2))
-// }
-// })
-
-// .addComputedField({
-//   name: "slug",
-//   description: "The title slug",
-//   schema: Schema.NonEmpty,
-//   resolve: (fields, meta) => Effect.succeed(fields.title.slice(0, 5))
-// })
-
-// computedFields: {
-//   slug: {
-//     description: "The title slug",
-//     schema: Schema.NonEmpty,
-//     resolve: (fields, sourceMeta) => Effect.succeed(fields.title.slice(0, 5))
-//   }
-// }
