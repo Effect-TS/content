@@ -32,41 +32,44 @@ export declare namespace Document {
   > extends Pipeable {
     readonly [TypeId]: VarianceStruct<Fields>
 
-    readonly addComputedField: <
-      Name extends string,
-      ResolverSchema extends Schema.Schema.Any
-    >(
-      field: ComputedField<
-        Name,
-        Fields,
-        ResolverSchema,
-        Source extends DocumentSource<infer Meta> ? Meta : never
-      >
-    ) => Document<
-      Schema.Simplify<
-        & Fields
-        & {
-          readonly [K in Name]: Schema.Schema.Type<ResolverSchema>
-        }
-      >,
-      Source
-    >
+    // readonly addComputedField: <
+    //   Name extends string,
+    //   ResolverSchema extends Schema.Schema.Any
+    // >(
+    //   field: ComputedField<
+    //     Name,
+    //     Fields,
+    //     ResolverSchema,
+    //     Source extends DocumentSource<infer Meta> ? Meta : never
+    //   >
+    // ) => Document<
+    //   Schema.Simplify<
+    //     & Fields
+    //     & {
+    //       readonly [K in Name]: Schema.Schema.Type<ResolverSchema>
+    //     }
+    //   >,
+    //   Source
+    // >
 
-    // readonly addComputedFields: <Computed extends Record<string, any>>(
-    //   fields: ExcludeDuplicateFields<Computed, Fields>
-    // ) => Document<Fields & Computed>
+    readonly addComputedFields: <Computed extends Record<string, AnyComputedField>>(
+      fields: ExcludeDuplicateFields<Computed, Fields>
+    ) => Document<Fields & Computed, Source>
   }
 
   export interface VarianceStruct<in out Fields> {
     readonly _Fields: Invariant<Fields>
   }
 
-  export type ExcludeDuplicateFields<
-    Computed extends Record<string, any>,
-    ExistingFields,
-    NewKeys = keyof Computed
-  > = NewKeys extends keyof ExistingFields ? ["Duplicate key"]
-    : Computed
+  export type ExcludeDuplicateFields<Computed, Existing> = HasDuplicateKeys<Computed, Existing> extends true
+    ? [`ERROR: Field name already exists`]
+    : {}
+
+  export type HasDuplicateKeys<T, U> = keyof T extends infer K ? K extends keyof U ? true
+    : false
+    : false
+
+  export type AnyComputedField = ComputedField<any, any, any, any>
 
   export interface ComputedField<
     Name extends string,
@@ -131,35 +134,37 @@ export const Post = make({
     title: Schema.NonEmpty,
     author: Author
   }
-}).addComputedField({
-  name: "slug",
-  description: "The title slug",
-  schema: Schema.NonEmpty,
-  resolve: (fields, meta) => Effect.succeed(fields.title.slice(0, 5))
+}).addComputedFields({
+  slug: {
+    name: "slug",
+    description: "The title slug",
+    schema: Schema.NonEmpty,
+    resolve: (fields, sourceMeta) => Effect.succeed(fields.title.slice(0, 5))
+  }
+  // foo: {
+  //   description: "The foo slug",
+  //   schema: Schema.NonEmpty,
+  //   resolve: (fields, sourceMeta) => Effect.succeed("FOO!")
+  // }
 })
-
 // .addComputedFields({
-//   slug: {
-//     description: "The title slug",
-//     schema: Schema.NonEmpty,
-//     resolve: (fields, sourceMeta) => Effect.succeed(fields.title.slice(0, 5))
-//   },
-//   foo: {
-//     description: "The foo slug",
-//     schema: Schema.NonEmpty,
-//     resolve: (fields, sourceMeta) => Effect.succeed("FOO!")
-//   }
-// }).addComputedFields({
-//   slug: {
-//     description: "The better title slug",
-//     schema: Schema.NonEmpty,
-//     resolve: (fields, sourceMeta) => Effect.succeed(fields.slug.slice(0, 2))
-//   },
-//   foo2: {
-//     description: "The better title slug",
-//     schema: Schema.NonEmpty,
-//     resolve: (fields, sourceMeta) => Effect.succeed(fields.slug.slice(0, 2))
-//   }
+// slug: {
+//   description: "The better title slug",
+//   schema: Schema.NonEmpty,
+//   resolve: (fields, sourceMeta) => Effect.succeed(fields.slug.slice(0, 2))
+// },
+// foo: {
+//   description: "The better title slug",
+//   schema: Schema.NonEmpty,
+//   resolve: (fields, sourceMeta) => Effect.succeed(fields.slug.slice(0, 2))
+// }
+// })
+
+// .addComputedField({
+//   name: "slug",
+//   description: "The title slug",
+//   schema: Schema.NonEmpty,
+//   resolve: (fields, meta) => Effect.succeed(fields.title.slice(0, 5))
 // })
 
 // computedFields: {
