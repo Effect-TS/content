@@ -33,14 +33,19 @@ export interface Document<
    * The computed fields for the document.
    *
    * Computed fields are processed in the following manner:
+   *
    *   - Groups of computed fields are resolved sequentially
    *   - Fields within each group will be resolved concurrently
-   *   - The first argument to a group's field resolvers will be the prior
+   *   - The first argument to a group's field resolver will be the prior
    *     group's computed fields joined with the document's fields
    *   - The second argument to a group's field resolvers will be the metadata
    *     provided by the document source
    */
-  readonly computedFields: ReadonlyArray<ReadonlyArray<Document.AnyComputedField & { readonly name: string }>>
+  readonly computedFields: ReadonlyArray<
+    ReadonlyArray<
+      Document.AnyComputedField & { readonly name: string }
+    >
+  >
 }
 
 export declare namespace Document {
@@ -51,13 +56,7 @@ export declare namespace Document {
     readonly [TypeId]: VarianceStruct<Fields>
 
     readonly addComputedFields: <ComputedFieldSchemas extends Record<string, Schema.Schema.Any>>(
-      fields: HasDuplicateKeys<ComputedFieldSchemas, Fields> extends true ? ["Error: Field name already exists"] : {
-        [Name in keyof ComputedFieldSchemas]: ComputedField<
-          Fields,
-          ComputedFieldSchemas[Name],
-          Source.Source.Meta<Source>
-        >
-      }
+      fields: ExcludeDuplicates<ComputedFieldSchemas, Fields, Source.Source.Meta<Source>>
     ) => Document<Schema.Simplify<MergeComputedFields<Fields, ComputedFieldSchemas>>, Source>
   }
 
@@ -65,9 +64,14 @@ export declare namespace Document {
     readonly _Fields: Invariant<Fields>
   }
 
-  export type HasDuplicateKeys<T, U> = keyof T extends infer K ? K extends keyof U ? true
-    : false
-    : false
+  export type ExcludeDuplicates<ComputedFieldSchemas extends Record<string, Schema.Schema.Any>, Fields, SourceMeta> = {
+    [Name in keyof ComputedFieldSchemas]: Name extends (keyof Fields & string) ? "ERROR: I hate my mouse" :
+      ComputedField<
+        Fields,
+        ComputedFieldSchemas[Name],
+        SourceMeta
+      >
+  }
 
   export type MergeComputedFields<Fields, ComputedFieldSchemas> =
     & Fields
@@ -158,6 +162,18 @@ export const Post = make({
   slug: {
     description: "The title slug",
     schema: Schema.NonEmptyString,
+    resolve: () => Effect.succeed(1)
+  },
+  title2: {
+    description: "The title slug",
+    schema: Schema.NonEmptyString,
     resolve: (fields, _) => Effect.succeed(fields.title.slice(0, 5))
   }
 })
+// .addComputedFields({
+//   title: {
+//     description: "The title slug",
+//     schema: Schema.NonEmptyString,
+//     resolve: () => Effect.succeed(1)
+//   },
+// })
