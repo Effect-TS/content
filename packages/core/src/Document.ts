@@ -33,11 +33,12 @@ export interface Document<
    * The computed fields for the document.
    *
    * Computed fields are processed in the following manner:
-   *   - Groups of computed fields are processed sequentially
-   *   - Fields within each group are processed concurrently
-   *   - Field resolvers within each group will receive the prior group's
-   *     computed fields, joined with the document fields, as the first argument
-   *     to the `resolve` method
+   *   - Groups of computed fields are resolved sequentially
+   *   - Fields within each group will be resolved concurrently
+   *   - The first argument to a group's field resolvers will be the prior
+   *     group's computed fields joined with the document's fields
+   *   - The second argument to a group's field resolvers will be the metadata
+   *     provided by the document source
    */
   readonly computedFields: ReadonlyArray<ReadonlyArray<Document.AnyComputedField & { readonly name: string }>>
 }
