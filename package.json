@@ -45,7 +45,7 @@
     "@effect/build-utils": "^0.7.7",
     "@effect/docgen": "^0.4.3",
     "@effect/dtslint": "^0.1.0",
-    "@effect/eslint-plugin": "^0.1.2",
+    "@effect/eslint-plugin": "^0.2.0",
     "@effect/language-service": "^0.1.0",
     "@types/node": "^20.14.10",
     "@typescript-eslint/eslint-plugin": "^7.16.0",
@@ -69,8 +69,8 @@
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.3",
-    "vite": "^5.3.3",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.4",
     "vitest": "^1.6.0"
   },
   "pnpm": {

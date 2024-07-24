@@ -1,5 +1,5 @@
 {
-  "name": "@contentlayer/core",
+  "name": "@effect/content",
   "version": "0.0.0",
   "type": "module",
   "license": "MIT",
@@ -20,14 +20,14 @@
     "test": "vitest",
     "coverage": "vitest --coverage"
   },
+  "dependencies": {
+    "@effect/schema": "^0.69.0",
+    "effect": "^3.5.7"
+  },
   "devDependencies": {
     "@types/jscodeshift": "^0.11.11",
     "@types/node": "^20.14.10",
     "ast-types": "^0.14.2",
     "jscodeshift": "^0.16.1"
-  },
-  "dependencies": {
-    "@effect/schema": "^0.68.25",
-    "effect": "^3.5.5"
   }
 }
