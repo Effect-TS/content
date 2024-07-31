@@ -32,8 +32,6 @@ export interface Document<
   /**
    * The computed fields for the document.
    *
-   * Computed fields are processed in the following manner:
-   *
    *   - Groups of computed fields are resolved sequentially
    *   - Fields within each group will be resolved concurrently
    *   - The first argument to a group's field resolver will be the prior
@@ -162,18 +160,17 @@ export const Post = make({
   slug: {
     description: "The title slug",
     schema: Schema.NonEmptyString,
-    resolve: () => Effect.succeed(1)
+    resolve: (fields) => Effect.succeed(fields.title.slice(0, 5))
   },
-  title2: {
+  slug2: {
     description: "The title slug",
     schema: Schema.NonEmptyString,
-    resolve: (fields, _) => Effect.succeed(fields.title.slice(0, 5))
+    resolve: (fields) => Effect.succeed(fields.title.slice(0, 5))
+  }
+}).addComputedFields({
+  slug3: {
+    description: "The title slug",
+    schema: Schema.Number,
+    resolve: () => Effect.succeed(1)
   }
 })
-// .addComputedFields({
-//   title: {
-//     description: "The title slug",
-//     schema: Schema.NonEmptyString,
-//     resolve: () => Effect.succeed(1)
-//   },
-// })

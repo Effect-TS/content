@@ -37,9 +37,12 @@
     "removeComments": false,
     "plugins": [{ "name": "@effect/language-service" }],
     "paths": {
-      "core": ["./packages/core/src/index.js"],
-      "core/*": ["./packages/core/src/*.js"],
-      "core/test/*": ["./packages/core/test/*.js"],
+      "@effect/contentlayer-cli": ["./packages/cli/src/index.js"],
+      "@effect/contentlayer-cli/*": ["./packages/cli/src/*.js"],
+      "@effect/contentlayer-cli/test/*": ["./packages/cli/test/*.js"],
+      "@effect/contentlayer-core": ["./packages/core/src/index.js"],
+      "@effect/contentlayer-core/*": ["./packages/core/src/*.js"],
+      "@effect/contentlayer-core/test/*": ["./packages/core/test/*.js"]
     }
   }
 }

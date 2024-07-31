@@ -27,7 +27,7 @@ const config: UserConfig = {
     },
     include: ["test/**/*.test.ts"],
     alias: {
-      ...alias("@contentlayer/core")
+      ...alias("@effect/contentlayer-core")
     }
   }
 }

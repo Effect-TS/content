@@ -1,5 +1,5 @@
 {
-  "name": "@effect/contentlayer-core",
+  "name": "@effect/contentlayer-cli",
   "version": "0.0.0",
   "type": "module",
   "license": "MIT",
@@ -7,7 +7,7 @@
   "repository": {
     "type": "git",
     "url": "",
-    "directory": "packages/core"
+    "directory": "packages/cli"
   },
   "scripts": {
     "codegen": "build-utils prepare-v2",
@@ -21,8 +21,11 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@effect/cli": "^0.40.1",
+    "@effect/experimental": "^0.21.1",
+    "@effect/platform": "^0.61.1",
+    "@effect/platform-node": "^0.56.1",
     "@effect/schema": "^0.70.0",
-    "effect": "^3.6.0",
-    "esbuild": "^0.23.0"
+    "effect": "^3.6.0"
   }
 }
