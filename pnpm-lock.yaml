@@ -157,6 +157,9 @@ importers:
       '@effect/cli':
         specifier: ^0.40.1
         version: 0.40.1(@effect/platform@0.61.1(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0))(@effect/printer-ansi@0.34.0(@effect/typeclass@0.25.0(effect@3.6.0))(effect@3.6.0))(@effect/printer@0.34.0(@effect/typeclass@0.25.0(effect@3.6.0))(effect@3.6.0))(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0)
+      '@effect/contentlayer-core':
+        specifier: workspace:^
+        version: link:../core
       '@effect/experimental':
         specifier: ^0.21.1
         version: 0.21.1(@effect/platform-node@0.56.1(@effect/platform@0.61.1(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0))(effect@3.6.0))(@effect/platform@0.61.1(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0))(@effect/schema@0.70.0(effect@3.6.0))(effect@3.6.0)(ws@8.18.0)

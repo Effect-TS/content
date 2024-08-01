@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@effect/cli": "^0.40.1",
+    "@effect/contentlayer-core": "workspace:^",
     "@effect/experimental": "^0.21.1",
     "@effect/platform": "^0.61.1",
     "@effect/platform-node": "^0.56.1",

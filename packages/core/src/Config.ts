@@ -1,36 +1,25 @@
-import { Effect, Layer, Queue, Reloadable } from "effect"
-import type { EsbuildResult } from "./Esbuild.js"
-import { Esbuild } from "./Esbuild.js"
+import * as Predicate from "effect/Predicate"
+import type { Document } from "./Document.js"
 
-export const make = Effect.gen(function*() {
-  const results = yield* Esbuild.results
-  const queue = yield* Queue.unbounded<any>()
+export const TypeId = Symbol.for("@effect/contentlayer/Config")
 
-  yield* Queue.take(results).pipe(
-    Effect.flatMap(buildConfiguration),
-    Effect.flatMap((config) => Queue.offer(queue, config)),
-    Effect.forever,
-    Effect.forkScoped
-  )
+export type TypeId = typeof TypeId
 
-  return {
-    queue
-  } as const
-})
-
-export class Config extends Effect.Tag("@effect/content/core/Config")<
-  Config,
-  Effect.Effect.Success<typeof make>
->() {
-  static Live = Layer.scoped(this, make).pipe(
-    Layer.provide(Esbuild.Live)
-  )
-
-  static ReloadableLive = Reloadable.manual(this, { layer: this.Live })
-  static get = Reloadable.get(this)
-  static reload = Effect.orDie(Reloadable.reload(this)).pipe(
-    Effect.zipRight(this.get)
-  )
+export interface Config extends Config.Proto {
+  readonly documents: ReadonlyArray<Document.Any>
 }
 
-declare function buildConfiguration(result: EsbuildResult): Effect.Effect<any>
+export declare namespace Config {
+  export interface Proto {
+    readonly [TypeId]: TypeId
+  }
+
+  export type Raw = Omit<Config, TypeId>
+}
+
+export const isConfig = (u: unknown): u is Config => Predicate.hasProperty(u, TypeId)
+
+export const make = (options: Config.Raw): Config => ({
+  [TypeId]: TypeId,
+  ...options
+})

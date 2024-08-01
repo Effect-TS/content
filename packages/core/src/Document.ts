@@ -1,9 +1,9 @@
-import * as Schema from "@effect/schema/Schema"
-import * as Effect from "effect/Effect"
+import type * as Schema from "@effect/schema/Schema"
+import type * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import type { Pipeable } from "effect/Pipeable"
 import type { Invariant } from "effect/Types"
-import * as Source from "./Source.js"
+import type * as Source from "./Source.js"
 
 export const TypeId: unique symbol = Symbol.for("@effect/content/Document")
 
@@ -61,6 +61,8 @@ export declare namespace Document {
   export interface VarianceStruct<in out Fields> {
     readonly _Fields: Invariant<Fields>
   }
+
+  export type Any = Document<any, any>
 
   export type ExcludeDuplicates<ComputedFieldSchemas extends Record<string, Schema.Schema.Any>, Fields, SourceMeta> = {
     [Name in keyof ComputedFieldSchemas]: Name extends (keyof Fields & string) ? "ERROR: I hate my mouse" :
@@ -142,35 +144,3 @@ export const make = <
     fields: options.fields,
     computedFields: []
   })
-
-const Author = Schema.Struct({
-  name: Schema.NonEmptyString,
-  twitter: Schema.optional(Schema.String)
-})
-
-export const Post = make({
-  name: "Post",
-  description: "The posts",
-  source: Source.fileSystem({ path: "content/posts/**/*.mdx?" }),
-  fields: {
-    title: Schema.NonEmptyString,
-    author: Author
-  }
-}).addComputedFields({
-  slug: {
-    description: "The title slug",
-    schema: Schema.NonEmptyString,
-    resolve: (fields) => Effect.succeed(fields.title.slice(0, 5))
-  },
-  slug2: {
-    description: "The title slug",
-    schema: Schema.NonEmptyString,
-    resolve: (fields) => Effect.succeed(fields.title.slice(0, 5))
-  }
-}).addComputedFields({
-  slug3: {
-    description: "The title slug",
-    schema: Schema.Number,
-    resolve: () => Effect.succeed(1)
-  }
-})

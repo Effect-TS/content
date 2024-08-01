@@ -6,5 +6,8 @@
     "outDir": "build/esm",
     "declarationDir": "build/dts",
     "stripInternal": true
-  }
+  },
+  "references": [
+    { "path": "../core/tsconfig.build.json" }
+  ]
 }
