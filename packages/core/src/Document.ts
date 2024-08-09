@@ -40,9 +40,7 @@ export interface Document<
    *     provided by the document source
    */
   readonly computedFields: ReadonlyArray<
-    ReadonlyArray<
-      Document.AnyComputedField & { readonly name: string }
-    >
+    ReadonlyArray<Document.AnySchemaWithResolver & { readonly name: string }>
   >
 }
 
@@ -53,9 +51,9 @@ export declare namespace Document {
   > extends Pipeable {
     readonly [TypeId]: VarianceStruct<Fields>
 
-    readonly addComputedFields: <ComputedFieldSchemas extends Record<string, Schema.Schema.Any>>(
-      fields: ExcludeDuplicates<ComputedFieldSchemas, Fields, Source.Source.Meta<Source>>
-    ) => Document<Schema.Simplify<MergeComputedFields<Fields, ComputedFieldSchemas>>, Source>
+    readonly addFields: <FieldSchemas extends Record<string, Schema.Schema.Any>>(
+      fields: (fields: Fields, source: Source.Source.Meta<Source>) => ExcludeDuplicates<FieldSchemas, Fields>
+    ) => Document<Schema.Simplify<MergeFields<Fields, FieldSchemas>>, Source>
   }
 
   export interface VarianceStruct<in out Fields> {
@@ -64,34 +62,20 @@ export declare namespace Document {
 
   export type Any = Document<any, any>
 
-  export type ExcludeDuplicates<ComputedFieldSchemas extends Record<string, Schema.Schema.Any>, Fields, SourceMeta> = {
-    [Name in keyof ComputedFieldSchemas]: Name extends (keyof Fields & string) ? "ERROR: I hate my mouse" :
-      ComputedField<
-        Fields,
-        ComputedFieldSchemas[Name],
-        SourceMeta
-      >
+  export type ExcludeDuplicates<FieldSchemas extends Record<string, Schema.Schema.Any>, Fields> = {
+    [Name in keyof FieldSchemas]: Name extends (keyof Fields & string) ? `ERROR: Duplicate property key: ${Name}` :
+      SchemaWithResolver<FieldSchemas[Name]>
   }
 
-  export type MergeComputedFields<Fields, ComputedFieldSchemas> =
+  export type MergeFields<Fields, FieldSchemas> =
     & Fields
-    & {
-      readonly [Name in keyof ComputedFieldSchemas]: Schema.Schema.Type<ComputedFieldSchemas[Name]>
-    }
+    & { readonly [Name in keyof FieldSchemas]: Schema.Schema.Type<FieldSchemas[Name]> }
 
-  export type AnyComputedField = ComputedField<any, any, any>
+  export type AnySchemaWithResolver = SchemaWithResolver<any>
 
-  export interface ComputedField<
-    Fields,
-    ResolverSchema extends Schema.Schema.Any,
-    SourceMeta
-  > {
-    readonly description?: string
-    readonly schema: ResolverSchema
-    readonly resolve: (
-      fields: Fields,
-      meta: SourceMeta
-    ) => Effect.Effect<Schema.Schema.Type<ResolverSchema>>
+  export type SchemaWithResolver<S extends Schema.Schema.Any> = {
+    schema: S
+    resolve: Effect.Effect<Schema.Schema.Type<S>>
   }
 }
 
@@ -101,7 +85,7 @@ const variance = {
 
 const Proto = {
   [TypeId]: variance,
-  addComputedFields(this: Document<any, any>, fields: Record<string, Document.AnyComputedField>) {
+  addFields(this: Document<any, any>, fields: Record<string, Document.AnySchemaWithResolver>) {
     const computedFields = Object.entries(fields).map(([name, field]) => ({ name, ...field }))
     return makeInternal({
       name: this.name,
@@ -118,7 +102,7 @@ const makeInternal = (options: {
   readonly description: Option.Option<string>
   readonly source: Source.Source.Any
   readonly fields: Schema.Struct.Fields
-  readonly computedFields: ReadonlyArray<ReadonlyArray<Document.AnyComputedField & { readonly name: string }>>
+  readonly computedFields: ReadonlyArray<ReadonlyArray<Document.AnySchemaWithResolver & { readonly name: string }>>
 }) =>
   Object.assign(Object.create(Proto), {
     name: options.name,
