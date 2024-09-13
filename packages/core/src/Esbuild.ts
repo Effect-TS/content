@@ -39,7 +39,7 @@ export const make = Effect.gen(function*() {
     (context) => Effect.promise(() => context.dispose())
   )
 
-  context.watch()
+  yield* Effect.promise(() => context.watch())
 
   return {
     results
