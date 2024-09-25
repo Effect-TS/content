@@ -33,7 +33,7 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
   Command.provide(({ configPath }) =>
     ConfigBuilder.Live.pipe(
       Layer.provide(BuildOptions.Live({
-        bundle: true,
+        bundle: false,
         entryNames: "[name]-[hash]",
         entryPoints: [configPath],
         format: "cjs",

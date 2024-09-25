@@ -1,4 +1,8 @@
+/**
+ * @since 1.0.0
+ */
 import * as Array from "effect/Array"
+import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Either from "effect/Either"
@@ -10,7 +14,11 @@ export interface EsbuildSuccess extends esbuild.BuildResult {}
 
 export class EsbuildError extends Data.TaggedError("EsbuildError")<{
   readonly errors: ReadonlyArray<esbuild.Message>
-}> {}
+}> {
+  get message() {
+    return this.errors.map((error) => error.text).join("\n")
+  }
+}
 
 export type EsbuildResult = Either.Either<EsbuildSuccess, EsbuildError>
 
@@ -41,12 +49,10 @@ export const make = Effect.gen(function*() {
 
   yield* Effect.promise(() => context.watch())
 
-  return {
-    results
-  } as const
+  return { results } as const
 })
 
-export class BuildOptions extends Effect.Tag("@effect/content/core/BuildOptions")<
+export class BuildOptions extends Context.Tag("@effect/content/core/BuildOptions")<
   BuildOptions,
   esbuild.BuildOptions
 >() {

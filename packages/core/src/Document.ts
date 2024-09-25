@@ -1,3 +1,6 @@
+/**
+ * @since 1.0.0
+ */
 import type * as Schema from "@effect/schema/Schema"
 import type * as Effect from "effect/Effect"
 import * as Option from "effect/Option"

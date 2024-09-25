@@ -1,3 +1,6 @@
+/**
+ * @since 1.0.0
+ */
 import type { Invariant } from "effect/Types"
 
 export const TypeId: unique symbol = Symbol.for("@effect/content/Source")

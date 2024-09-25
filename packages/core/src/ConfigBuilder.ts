@@ -1,7 +1,8 @@
+/**
+ * @since 1.0.0
+ */
 import * as FileSystem from "@effect/platform/FileSystem"
-import type * as Path from "@effect/platform/Path"
-import * as Array from "effect/Array"
-import * as Console from "effect/Console"
+import * as Path from "@effect/platform/Path"
 import * as Effect from "effect/Effect"
 import { identity } from "effect/Function"
 import * as Layer from "effect/Layer"
@@ -9,6 +10,7 @@ import * as Option from "effect/Option"
 import * as Queue from "effect/Queue"
 import * as Stream from "effect/Stream"
 import * as SubscriptionRef from "effect/SubscriptionRef"
+import * as Module from "node:module"
 import * as VM from "node:vm"
 import * as Config from "./Config.js"
 import type { EsbuildSuccess } from "./Esbuild.js"
@@ -85,36 +87,34 @@ export class ConfigBuilder extends Effect.Tag("@effect/content/core/ConfigBuilde
   )
 }
 
-const ESBUILD_HASH_REGEX = /compiled-contentlayer-config-(.+)$/
-const COMPILED_CONTENTLAYER_CONFIG_REGEX = /compiled-contentlayer-config-.+$/
+// const ESBUILD_HASH_REGEX = /compiled-contentlayer-config-(.+)$/
+const configAsOption = Option.liftPredicate(Config.isConfig)
 
 const build = (
   result: EsbuildSuccess
 ): Effect.Effect<Option.Option<Config.Config>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
 
-    const outfilePath = yield* Option.fromNullable(result.metafile).pipe(
-      Option.map((metafile) => Object.keys(metafile.outputs)),
-      Option.flatMap(Array.findFirst((filePath) => COMPILED_CONTENTLAYER_CONFIG_REGEX.test(filePath))),
+    const [outfilePath, output] = yield* Option.fromNullable(result.metafile).pipe(
+      Option.flatMapNullable((metafile) => Object.entries(metafile.outputs)[0]),
       Effect.orDie
     )
 
-    const esbuildHash = yield* Option.fromNullable(outfilePath.match(ESBUILD_HASH_REGEX)).pipe(
-      Option.flatMap(Array.get(1)),
-      Effect.orDie
-    )
+    // const esbuildHash = yield* Option.fromNullable(outfilePath.match(ESBUILD_HASH_REGEX)).pipe(
+    //   Option.flatMap(Array.get(1)),
+    //   Effect.orDie
+    // )
 
     const content = yield* Effect.orDie(fs.readFileString(outfilePath))
 
     const context = VM.createContext(globalThis)
+    context.require = Module.createRequire(path.resolve(output.entryPoint!))
     context.module = { exports: {} }
     context.exports = context.module.exports
 
     yield* Effect.sync(() => VM.runInContext(content, context))
 
-    yield* Console.dir(context.module.exports.default, { depth: null, colors: true })
-    yield* Console.log(esbuildHash)
-
-    return Option.some(Config.make({ documents: [] }))
+    return configAsOption(context.module.exports.default)
   })

@@ -50,6 +50,7 @@
     "@effect/language-service": "^0.1.0",
     "@effect/platform": "^0.61.1",
     "@effect/platform-node": "^0.56.1",
+    "@effect/schema": "^0.70.0",
     "@types/node": "^22.0.1",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
