@@ -1,6 +1,6 @@
 import * as Command from "@effect/cli/Command"
 import * as Options from "@effect/cli/Options"
-import { ConfigBuilder } from "@effect/contentlayer-core/ConfigBuilder"
+import { DocumentBuilder } from "@effect/contentlayer-core/DocumentBuilder"
 import { BuildOptions } from "@effect/contentlayer-core/Esbuild"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
@@ -31,7 +31,7 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
     )
   ),
   Command.provide(({ configPath }) =>
-    ConfigBuilder.Live.pipe(
+    DocumentBuilder.Live.pipe(
       Layer.provide(BuildOptions.Live({
         bundle: false,
         entryNames: "[name]-[hash]",

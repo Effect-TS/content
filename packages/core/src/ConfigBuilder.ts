@@ -1,13 +1,14 @@
 /**
  * @since 1.0.0
  */
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as NodePath from "@effect/platform-node/NodePath"
 import * as FileSystem from "@effect/platform/FileSystem"
 import * as Path from "@effect/platform/Path"
 import * as Effect from "effect/Effect"
 import { identity } from "effect/Function"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
-import * as Queue from "effect/Queue"
 import * as Stream from "effect/Stream"
 import * as SubscriptionRef from "effect/SubscriptionRef"
 import * as Module from "node:module"
@@ -58,14 +59,13 @@ import { Esbuild } from "./Esbuild.js"
 // compiled-contentlayer-config-[HASH].mjs
 
 export const make = Effect.gen(function*() {
-  const results = yield* Esbuild.results
+  const esbuild = yield* Esbuild
   const config = yield* SubscriptionRef.make(Option.none<Config.Config>())
 
-  yield* Queue.take(results).pipe(
+  yield* esbuild.results.take.pipe(
     Effect.flatten,
     Effect.flatMap(build),
     Effect.flatMap((latest) => SubscriptionRef.set(config, latest)),
-    // TODO: log nice messages for the user
     Effect.catchAllCause(Effect.logError),
     Effect.forever,
     Effect.forkScoped
@@ -83,7 +83,9 @@ export class ConfigBuilder extends Effect.Tag("@effect/content/core/ConfigBuilde
   Effect.Effect.Success<typeof make>
 >() {
   static Live = Layer.scoped(this, make).pipe(
-    Layer.provide(Esbuild.Live)
+    Layer.provide(Esbuild.Live),
+    Layer.provide(NodeFileSystem.layer),
+    Layer.provide(NodePath.layer)
   )
 }
 
@@ -109,7 +111,9 @@ const build = (
 
     const content = yield* Effect.orDie(fs.readFileString(outfilePath))
 
-    const context = VM.createContext(globalThis)
+    const context = VM.createContext({
+      ...globalThis
+    })
     context.require = Module.createRequire(path.resolve(output.entryPoint!))
     context.module = { exports: {} }
     context.exports = context.module.exports
