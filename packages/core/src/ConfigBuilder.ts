@@ -14,6 +14,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef"
 import * as Module from "node:module"
 import * as VM from "node:vm"
 import * as Config from "./Config.js"
+import { ContentlayerError } from "./ContentlayerError.js"
 import type { EsbuildSuccess } from "./Esbuild.js"
 import { Esbuild } from "./Esbuild.js"
 
@@ -78,7 +79,7 @@ export const make = Effect.gen(function*() {
   } as const
 })
 
-export class ConfigBuilder extends Effect.Tag("@effect/content/core/ConfigBuilder")<
+export class ConfigBuilder extends Effect.Tag("@effect/contentlayer-core/ConfigBuilder")<
   ConfigBuilder,
   Effect.Effect.Success<typeof make>
 >() {
@@ -94,7 +95,11 @@ const configAsOption = Option.liftPredicate(Config.isConfig)
 
 const build = (
   result: EsbuildSuccess
-): Effect.Effect<Option.Option<Config.Config>, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  Option.Option<Config.Config>,
+  ContentlayerError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -118,7 +123,16 @@ const build = (
     context.module = { exports: {} }
     context.exports = context.module.exports
 
-    yield* Effect.sync(() => VM.runInContext(content, context))
+    yield* Effect.try({
+      try: () => VM.runInContext(content, context),
+      catch: (cause) =>
+        new ContentlayerError({
+          module: "ConfigBuilder",
+          method: "build",
+          description: "Error evaluating config",
+          cause
+        })
+    })
 
     return configAsOption(context.module.exports.default)
   })

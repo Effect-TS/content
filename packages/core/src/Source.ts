@@ -4,6 +4,7 @@
 import type * as CommandExecutor from "@effect/platform/CommandExecutor"
 import * as FileSystem from "@effect/platform/FileSystem"
 import type * as Path from "@effect/platform/Path"
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import * as Glob from "glob"
@@ -13,7 +14,7 @@ import { ContentlayerError } from "./ContentlayerError.js"
  * @since 1.0.0
  * @category models
  */
-export interface Source<in out Meta, out E = never> extends Stream.Stream<Meta, E, Source.Provided> {}
+export interface Source<in Meta, out E = never> extends Stream.Stream<Context.Context<Meta>, E, Source.Provided> {}
 
 /**
  * @since 1.0.0
@@ -37,34 +38,38 @@ export declare namespace Source {
    * @category models
    */
   export type Provided = FileSystem.FileSystem | Path.Path | CommandExecutor.CommandExecutor
+}
 
-  /**
-   * @since 1.0.0
-   * @category models
-   */
-  export interface ContentMeta {
+/**
+ * @since 1.0.0
+ * @category models
+ */
+export class ContentMeta extends Context.Tag("@effect/contentlayer-core/Source/ContentMeta")<
+  ContentMeta,
+  {
     readonly stream: Stream.Stream<Uint8Array>
     readonly content: Effect.Effect<string>
     readonly contentUint8Array: Effect.Effect<Uint8Array>
   }
-}
+>() {}
 
 /**
  * @since 1.0.0
  * @category file system
  */
-export interface FileSystemSource extends Source<FileSystemSource.Meta, ContentlayerError> {}
+export interface FileSystemSource extends Source<FileSystemMeta | ContentMeta, ContentlayerError> {}
 
 /**
  * @since 1.0.0
  * @category file system
  */
-export declare namespace FileSystemSource {
-  export interface Meta extends Source.ContentMeta {
+export class FileSystemMeta extends Context.Tag("@effect/contentlayer-core/Source/FileSystemMeta")<
+  FileSystemMeta,
+  {
     readonly path: string
-    readonly stat: FileSystem.File.Info
+    readonly info: FileSystem.File.Info
   }
-}
+>() {}
 
 /**
  * @since 1.0.0
@@ -86,7 +91,10 @@ export const fileSystem = (options: {
         })
     })
 
-    const loadMeta = (path: string): Effect.Effect<FileSystemSource.Meta, ContentlayerError> =>
+    const loadMeta = (path: string): Effect.Effect<
+      Context.Context<ContentMeta | FileSystemMeta>,
+      ContentlayerError
+    > =>
       fs.stat(path).pipe(
         Effect.mapError((cause) =>
           new ContentlayerError({
@@ -96,13 +104,15 @@ export const fileSystem = (options: {
             cause
           })
         ),
-        Effect.map((stat): FileSystemSource.Meta => ({
-          path,
-          stat,
-          stream: Stream.orDie(fs.stream(path)),
-          content: Effect.orDie(fs.readFileString(path)),
-          contentUint8Array: Effect.orDie(fs.readFile(path))
-        }))
+        Effect.map((info) =>
+          Context.make(ContentMeta, {
+            stream: Stream.orDie(fs.stream(path)),
+            content: Effect.orDie(fs.readFileString(path)),
+            contentUint8Array: Effect.orDie(fs.readFile(path))
+          }).pipe(
+            Context.add(FileSystemMeta, { path, info })
+          )
+        )
       )
 
     return Stream.fromIterable(paths).pipe(

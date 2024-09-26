@@ -1,8 +1,9 @@
 /**
  * @since 1.0.0
  */
-import { Effect, Stream } from "effect"
-import type * as Types from "effect/Types"
+import * as Context from "effect/Context"
+import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
 import remarkFrontmatter from "remark-frontmatter"
 import remarkParse from "remark-parse"
 import remarkParseFrontmatter from "remark-parse-frontmatter"
@@ -11,28 +12,22 @@ import * as Unified from "unified"
 import type * as Unist from "unist"
 import { ContentlayerError } from "./ContentlayerError.js"
 import type { Source } from "./Source.js"
-
-/**
- * @since 1.0.0
- * @category constructors
- */
-export const make = <In, InErr, Out, OutErr>(f: (source: Source<In, InErr>) => Source<Out, OutErr>) => f
+import { ContentMeta } from "./Source.js"
 
 /**
  * @since 1.0.0
  * @category unified
  */
-export interface UnifiedOutput<Out, Data> {
-  readonly value: Out
-  readonly data: Data
-}
+export class UnifiedOutput extends Context.Tag("@effect/contentlayer-core/SourcePlugin/UnifiedOutput")<UnifiedOutput, {
+  readonly value: unknown
+  readonly data: Record<string, unknown>
+}>() {}
 
 /**
  * @since 1.0.0
  * @category unified
  */
-export const unified = <Data = {}>() =>
-<
+export const unified = <
   ParseTree extends Unist.Node,
   HeadTree extends Unist.Node,
   TailTree extends Unist.Node,
@@ -44,19 +39,15 @@ export const unified = <Data = {}>() =>
     | Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>
     | Effect.Effect<Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>, EX, Source.Provided>
 ) =>
-<In extends Source.ContentMeta, InErr>(source: Source<In, InErr>): Source<
-  Types.Simplify<
-    In & {
-      readonly output: UnifiedOutput<Out, Data>
-    }
-  >,
+<In extends ContentMeta, InErr>(source: Source<In, InErr>): Source<
+  In | UnifiedOutput,
   EX | InErr | ContentlayerError
 > =>
   (Effect.isEffect(processor) ? processor : Effect.succeed(processor)).pipe(
     Effect.map((processor) =>
       source.pipe(
         Stream.mapEffect((meta) =>
-          meta.content.pipe(
+          Context.unsafeGet(meta, ContentMeta).content.pipe(
             Effect.tryMapPromise({
               try: (content) => processor.process(content),
               catch: (cause) =>
@@ -67,7 +58,7 @@ export const unified = <Data = {}>() =>
                   cause
                 })
             }),
-            Effect.map((output) => ({ ...meta, output } as any))
+            Effect.map((output) => Context.add(meta, UnifiedOutput, output))
           )
         )
       )
@@ -79,9 +70,7 @@ export const unified = <Data = {}>() =>
  * @since 1.0.0
  * @category unified
  */
-export const unifiedRemark = unified<{
-  readonly frontmatter: Record<string, string>
-}>()(
+export const unifiedRemark = unified(
   Unified.unified()
     .use(remarkParse)
     .use(remarkStringify)
