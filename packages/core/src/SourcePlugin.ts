@@ -1,7 +1,6 @@
 /**
  * @since 1.0.0
  */
-import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import remarkFrontmatter from "remark-frontmatter"
@@ -11,17 +10,7 @@ import remarkStringify from "remark-stringify"
 import * as Unified from "unified"
 import type * as Unist from "unist"
 import { ContentlayerError } from "./ContentlayerError.js"
-import type { Source } from "./Source.js"
-import { ContentMeta } from "./Source.js"
-
-/**
- * @since 1.0.0
- * @category unified
- */
-export class UnifiedOutput extends Context.Tag("@effect/contentlayer-core/SourcePlugin/UnifiedOutput")<UnifiedOutput, {
-  readonly value: unknown
-  readonly data: Record<string, unknown>
-}>() {}
+import type * as Source from "./Source.js"
 
 /**
  * @since 1.0.0
@@ -34,20 +23,21 @@ export const unified = <
   CompileTree extends Unist.Node,
   Out extends Unified.CompileResults,
   EX = never
->(
-  processor:
+>(options: {
+  readonly processor:
     | Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>
-    | Effect.Effect<Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>, EX, Source.Provided>
-) =>
-<In extends ContentMeta, InErr>(source: Source<In, InErr>): Source<
-  In | UnifiedOutput,
+    | Effect.Effect<Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>, EX, Source.Source.Provided>
+  readonly metadata: (_: Record<string, any>) => Record<string, any>
+}) =>
+<In, InErr>(source: Source.Source<In, InErr>): Source.Source<
+  In,
   EX | InErr | ContentlayerError
 > =>
-  (Effect.isEffect(processor) ? processor : Effect.succeed(processor)).pipe(
+  (Effect.isEffect(options.processor) ? options.processor : Effect.succeed(options.processor)).pipe(
     Effect.map((processor) =>
       source.pipe(
-        Stream.mapEffect((meta) =>
-          Context.unsafeGet(meta, ContentMeta).content.pipe(
+        Stream.mapEffect((output) =>
+          output.content.pipe(
             Effect.tryMapPromise({
               try: (content) => processor.process(content),
               catch: (cause) =>
@@ -58,7 +48,12 @@ export const unified = <
                   cause
                 })
             }),
-            Effect.map((output) => Context.add(meta, UnifiedOutput, output))
+            Effect.map((vfile) =>
+              output.addFields({
+                body: vfile.value,
+                ...options.metadata(vfile.data)
+              })
+            )
           )
         )
       )
@@ -70,10 +65,11 @@ export const unified = <
  * @since 1.0.0
  * @category unified
  */
-export const unifiedRemark = unified(
-  Unified.unified()
+export const unifiedRemark = unified({
+  processor: Unified.unified()
     .use(remarkParse)
     .use(remarkStringify)
     .use(remarkFrontmatter)
-    .use(remarkParseFrontmatter)
-)
+    .use(remarkParseFrontmatter),
+  metadata: (data) => data.frontmatter ?? {}
+})

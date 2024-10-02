@@ -1,6 +1,7 @@
 /**
  * @since 1.0.0
  */
+import * as Console from "effect/Console"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -17,7 +18,7 @@ const make = Effect.gen(function*() {
       document.source.pipe(
         Stream.catchAllCause((cause) => Stream.drain(Effect.logError(cause)))
       ) as Stream.Stream<Context.Context<never>>),
-    Stream.runForEach(Effect.log),
+    Stream.runForEach((_) => Console.dir(_.source, { depth: null })),
     Effect.forkScoped
   )
 

@@ -3,8 +3,8 @@
  */
 import type * as CommandExecutor from "@effect/platform/CommandExecutor"
 import * as FileSystem from "@effect/platform/FileSystem"
-import type * as Path from "@effect/platform/Path"
-import * as Context from "effect/Context"
+import * as Path from "@effect/platform/Path"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import * as Glob from "glob"
@@ -14,7 +14,7 @@ import { ContentlayerError } from "./ContentlayerError.js"
  * @since 1.0.0
  * @category models
  */
-export interface Source<in Meta, out E = never> extends Stream.Stream<Context.Context<Meta>, E, Source.Provided> {}
+export interface Source<out Meta, out E = never> extends Stream.Stream<Output<Meta>, E, Source.Provided> {}
 
 /**
  * @since 1.0.0
@@ -31,7 +31,7 @@ export declare namespace Source {
    * @since 1.0.0
    * @category models
    */
-  export type Meta<Source extends Any> = Stream.Stream.Success<Source>
+  export type Meta<A extends Any> = A extends Source<infer Meta, infer _E> ? Meta : never
 
   /**
    * @since 1.0.0
@@ -42,34 +42,67 @@ export declare namespace Source {
 
 /**
  * @since 1.0.0
- * @category models
+ * @category output
  */
-export class ContentMeta extends Context.Tag("@effect/contentlayer-core/Source/ContentMeta")<
-  ContentMeta,
-  {
-    readonly stream: Stream.Stream<Uint8Array>
-    readonly content: Effect.Effect<string>
-    readonly contentUint8Array: Effect.Effect<Uint8Array>
+export const OutputTypeId: unique symbol = Symbol.for("@effect/contentlayer-core/Source/Output")
+
+/**
+ * @since 1.0.0
+ * @category output
+ */
+export type OutputTypeId = typeof OutputTypeId
+
+/**
+ * @since 1.0.0
+ * @category output
+ */
+export class Output<out Meta> extends Data.Class<{
+  readonly stream: Stream.Stream<Uint8Array>
+  readonly content: Effect.Effect<string>
+  readonly contentUint8Array: Effect.Effect<Uint8Array>
+  readonly fields: Record<string, unknown>
+  readonly meta: Meta
+}> {
+  /**
+   * @since 1.0.0
+   */
+  readonly [OutputTypeId]: OutputTypeId = OutputTypeId
+
+  /**
+   * @since 1.0.0
+   */
+  addField(key: string, value: unknown): Output<Meta> {
+    return new Output({
+      ...this,
+      fields: {
+        ...this.fields,
+        [key]: value
+      }
+    })
   }
->() {}
+
+  /**
+   * @since 1.0.0
+   */
+  addFields(fields: Record<string, unknown>): Output<Meta> {
+    return new Output({
+      ...this,
+      fields: {
+        ...this.fields,
+        ...fields
+      }
+    })
+  }
+}
 
 /**
  * @since 1.0.0
  * @category file system
  */
-export interface FileSystemSource extends Source<FileSystemMeta | ContentMeta, ContentlayerError> {}
-
-/**
- * @since 1.0.0
- * @category file system
- */
-export class FileSystemMeta extends Context.Tag("@effect/contentlayer-core/Source/FileSystemMeta")<
-  FileSystemMeta,
-  {
-    readonly path: string
-    readonly info: FileSystem.File.Info
-  }
->() {}
+export interface FileSystemMeta extends Path.Path.Parsed {
+  readonly path: string
+  readonly name: string
+}
 
 /**
  * @since 1.0.0
@@ -77,9 +110,11 @@ export class FileSystemMeta extends Context.Tag("@effect/contentlayer-core/Sourc
  */
 export const fileSystem = (options: {
   readonly paths: ReadonlyArray<string>
-}): FileSystemSource =>
+}): Source<FileSystemMeta, ContentlayerError> =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
+    const path_ = yield* Path.Path
+
     const paths = yield* Effect.tryPromise({
       try: () => Glob.glob(options.paths as Array<string>),
       catch: (cause) =>
@@ -91,31 +126,20 @@ export const fileSystem = (options: {
         })
     })
 
-    const loadMeta = (path: string): Effect.Effect<
-      Context.Context<ContentMeta | FileSystemMeta>,
-      ContentlayerError
-    > =>
-      fs.stat(path).pipe(
-        Effect.mapError((cause) =>
-          new ContentlayerError({
-            module: "Source",
-            method: "fileSystem",
-            description: "Error while loading metadata",
-            cause
-          })
-        ),
-        Effect.map((info) =>
-          Context.make(ContentMeta, {
-            stream: Stream.orDie(fs.stream(path)),
-            content: Effect.orDie(fs.readFileString(path)),
-            contentUint8Array: Effect.orDie(fs.readFile(path))
-          }).pipe(
-            Context.add(FileSystemMeta, { path, info })
-          )
-        )
-      )
+    const loadMeta = (path: string): Output<FileSystemMeta> =>
+      new Output({
+        stream: Stream.orDie(fs.stream(path)),
+        content: Effect.orDie(fs.readFileString(path)),
+        contentUint8Array: Effect.orDie(fs.readFile(path)),
+        meta: {
+          ...path_.parse(path),
+          path,
+          name: path_.basename(path)
+        },
+        fields: {}
+      })
 
     return Stream.fromIterable(paths).pipe(
-      Stream.mapEffect(loadMeta, { concurrency: 10 })
+      Stream.map(loadMeta)
     )
   }).pipe(Stream.unwrap)
