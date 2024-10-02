@@ -1,3 +1,6 @@
+/**
+ * @since 1.0.0
+ */
 import * as Predicate from "effect/Predicate"
 import type { Document } from "./Document.js"
 

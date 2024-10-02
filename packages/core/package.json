@@ -21,8 +21,19 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@effect/schema": "^0.70.0",
-    "effect": "^3.6.0",
-    "esbuild": "^0.23.0"
+    "@effect/schema": "^0.74.1",
+    "effect": "^3.8.4",
+    "esbuild": "^0.24.0",
+    "glob": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/unist": "^3.0.3",
+    "remark": "^15.0.1",
+    "remark-frontmatter": "^5.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-parse-frontmatter": "^1.0.3",
+    "remark-stringify": "^11.0.0"
   }
 }
