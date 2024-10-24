@@ -1,10 +1,10 @@
 /**
  * @since 1.0.0
  */
-import type * as Schema from "@effect/schema/Schema"
 import type * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import type { Pipeable } from "effect/Pipeable"
+import type * as Schema from "effect/Schema"
 import type { Invariant } from "effect/Types"
 import type * as Source from "./Source.js"
 
