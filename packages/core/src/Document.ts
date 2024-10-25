@@ -4,7 +4,7 @@
 import type * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import type { Pipeable } from "effect/Pipeable"
-import type * as Schema from "effect/Schema"
+import * as Schema from "effect/Schema"
 import type { Invariant } from "effect/Types"
 import type * as Source from "./Source.js"
 
@@ -13,7 +13,7 @@ export const TypeId: unique symbol = Symbol.for("@effect/content/Document")
 export type TypeId = typeof TypeId
 
 export interface Document<
-  in out Fields,
+  in out Fields extends Schema.Struct.Fields,
   in out Source extends Source.Source.Any
 > extends Document.Proto<Fields, Source> {
   /**
@@ -31,7 +31,7 @@ export interface Document<
   /**
    * The fields schema for the document.
    */
-  readonly fields: Schema.Struct.Fields
+  readonly fields: Schema.Struct<Fields>
   /**
    * The computed fields for the document.
    *
@@ -100,6 +100,11 @@ export declare namespace Document {
       output: Output
     ) => Effect.Effect<Schema.Schema.Type<ResolverSchema>>
   }
+
+  export interface Output<Document extends Any> {
+    readonly meta: Source.Source.Meta<Document["source"]>
+    readonly fields: Schema.Schema.Type<Document["fields"]>
+  }
 }
 
 const variance = {
@@ -114,7 +119,7 @@ const Proto = {
       name: this.name,
       description: this.description,
       source: this.source,
-      fields: this.fields,
+      fields: this.fields as any,
       computedFields: [...this.computedFields, computedFields]
     })
   }
@@ -124,7 +129,7 @@ const makeInternal = (options: {
   readonly name: string
   readonly description: Option.Option<string>
   readonly source: Source.Source.Any
-  readonly fields: Schema.Struct.Fields
+  readonly fields: Schema.Struct<any>
   readonly computedFields: ReadonlyArray<ReadonlyArray<Document.AnyComputedField & { readonly name: string }>>
 }) =>
   Object.assign(Object.create(Proto), {
@@ -143,11 +148,11 @@ export const make = <
   readonly description?: string
   readonly source: Source
   readonly fields: Fields
-}): Document<Schema.Simplify<Schema.Struct.Type<Fields>>, Source> =>
+}): Document<Fields, Source> =>
   makeInternal({
     name: options.name,
     description: Option.fromNullable(options.description),
     source: options.source,
-    fields: options.fields,
+    fields: Schema.Struct(options.fields),
     computedFields: []
   })

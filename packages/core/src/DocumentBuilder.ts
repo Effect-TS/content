@@ -19,24 +19,21 @@ const make = Effect.gen(function*() {
     Stream.flatMap((config) =>
       Stream.fromIterable(config.documents).pipe(
         Stream.bindTo("document"),
-        Stream.let("decodeFields", ({ document }) => Schema.decodeUnknown(Schema.Struct(document.fields))),
         Stream.bind("output", ({ document }) => document.source as Stream.Stream<Source.Output<unknown>>, {
           concurrency: "unbounded"
         }),
-        Stream.bind("fields", ({ decodeFields, document, output }) =>
-          (decodeFields(output.fields) as Effect.Effect<Record<string, unknown>, ParseError>).pipe(
-            Effect.flatMap((fields) =>
-              resolveComputedFields({ document, output, fields })
-            )
+        Stream.bind("fields", ({ document, output }) =>
+          Effect.flatMap(
+            Schema.decode(document.fields)(output.fields) as Effect.Effect<Record<string, unknown>, ParseError>,
+            (fields) => resolveComputedFields({ document, output, fields })
           ), { concurrency: "unbounded" }),
         Stream.runForEach((_) =>
           Console.dir({
+            meta: _.output.meta,
             fields: _.fields
           }, { depth: null })
         ),
-        Effect.catchAllCause((cause) =>
-          Effect.logError("Error building documents", cause)
-        ),
+        Effect.catchAllCause((cause) => Effect.logError("Error building documents", cause)),
         Effect.annotateLogs({
           module: "@effect/contentlayer-core/DocumentBuilder"
         })
@@ -75,7 +72,7 @@ const resolveComputedFields = (options: {
       Effect.forEach(
         group,
         (field) =>
-          field.resolve(fields, options.output.context).pipe(
+          field.resolve(fields, options.output).pipe(
             Effect.tap(Schema.validate(field.schema))
           ),
         { concurrency: group.length }
