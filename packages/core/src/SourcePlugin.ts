@@ -35,18 +35,21 @@ export const unified = <
   HeadTree extends Unist.Node,
   TailTree extends Unist.Node,
   CompileTree extends Unist.Node,
-  Out extends Unified.CompileResults
+  Out extends Unified.CompileResults,
+  EX = never
 >(options: {
   readonly processor:
     | Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>
     | Effect.Effect<
       Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>,
-      ContentlayerError,
+      EX,
       Source.Source.Provided
     >
   readonly extractFields: (vfile: VFile) => Record<string, any>
 }) =>
-<In>(source: Source.Source<In>): Source.Source<In | UnifiedOutput> =>
+<Meta, In, E>(
+  source: Source.Source<Meta, In, E>
+): Source.Source<Meta, In | UnifiedOutput, E | EX | ContentlayerError> =>
   (Effect.isEffect(options.processor) ? options.processor : Effect.succeed(options.processor)).pipe(
     Effect.map((processor) =>
       source.pipe(
@@ -64,7 +67,7 @@ export const unified = <
             }),
             Effect.map((vfile) =>
               output
-                .addMeta(UnifiedOutput, vfile)
+                .addContext(UnifiedOutput, vfile)
                 .addFields(options.extractFields(vfile))
             )
           )

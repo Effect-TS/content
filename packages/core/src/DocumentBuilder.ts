@@ -5,6 +5,7 @@ import * as Console from "effect/Console"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import type { ParseError } from "effect/ParseResult"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import { ConfigBuilder } from "./ConfigBuilder.js"
@@ -19,20 +20,26 @@ const make = Effect.gen(function*() {
       Stream.fromIterable(config.documents).pipe(
         Stream.bindTo("document"),
         Stream.let("decodeFields", ({ document }) => Schema.decodeUnknown(Schema.Struct(document.fields))),
-        Stream.bind("output", ({ document }) =>
-          document.source.pipe(
-            Stream.catchAllCause((cause) => Stream.drain(Effect.logError(cause)))
-          ) as Stream.Stream<Source.Output<unknown>>),
+        Stream.bind("output", ({ document }) => document.source as Stream.Stream<Source.Output<unknown>>, {
+          concurrency: "unbounded"
+        }),
         Stream.bind("fields", ({ decodeFields, document, output }) =>
-          decodeFields(output.fields).pipe(
-            Effect.flatMap((fields) => resolveComputedFields({ document, output, fields }))
+          (decodeFields(output.fields) as Effect.Effect<Record<string, unknown>, ParseError>).pipe(
+            Effect.flatMap((fields) =>
+              resolveComputedFields({ document, output, fields })
+            )
           ), { concurrency: "unbounded" }),
         Stream.runForEach((_) =>
           Console.dir({
             fields: _.fields
           }, { depth: null })
         ),
-        Effect.catchAllCause(Effect.logError)
+        Effect.catchAllCause((cause) =>
+          Effect.logError("Error building documents", cause)
+        ),
+        Effect.annotateLogs({
+          module: "@effect/contentlayer-core/DocumentBuilder"
+        })
       ), { switch: true }),
     Stream.runDrain,
     Effect.forkScoped
@@ -60,7 +67,7 @@ const resolveComputedFields = (options: {
   readonly document: Document.Document<any, any>
   readonly output: Source.Output<unknown>
   readonly fields: Record<string, unknown>
-}) =>
+}): Effect.Effect<Record<string, unknown>, ParseError> =>
   Effect.reduce(
     options.document.computedFields,
     options.fields,
@@ -81,4 +88,4 @@ const resolveComputedFields = (options: {
           return newFields
         })
       )
-  )
+  ) as Effect.Effect<Record<string, unknown>, ParseError>

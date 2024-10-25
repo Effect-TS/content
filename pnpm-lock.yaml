@@ -179,6 +179,9 @@ importers:
       unist:
         specifier: ^0.0.1
         version: 0.0.1
+      vfile:
+        specifier: ^6.0.3
+        version: 6.0.3
     devDependencies:
       '@types/unist':
         specifier: ^3.0.3
@@ -198,9 +201,6 @@ importers:
       remark-stringify:
         specifier: ^11.0.0
         version: 11.0.0
-      vfile:
-        specifier: ^6.0.3
-        version: 6.0.3
 
 packages:
 

@@ -8,6 +8,7 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
+import type { MergeRight } from "effect/Types"
 import * as Glob from "glob"
 import { ContentlayerError } from "./ContentlayerError.js"
 
@@ -15,7 +16,9 @@ import { ContentlayerError } from "./ContentlayerError.js"
  * @since 1.0.0
  * @category models
  */
-export interface Source<out Meta> extends Stream.Stream<Output<Meta>, ContentlayerError, Source.Provided> {}
+export interface Source<out Meta, in Context = never, out E = never>
+  extends Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+{}
 
 /**
  * @since 1.0.0
@@ -26,19 +29,23 @@ export declare namespace Source {
    * @since 1.0.0
    * @category models
    */
-  export type Any = Source<any>
+  export type Any =
+    | Source<any, never, never>
+    | Source<any, any, never>
+    | Source<any, never, any>
+    | Source<any, any, any>
 
   /**
    * @since 1.0.0
    * @category models
    */
-  export type Meta<A extends Any> = A extends Source<infer Meta> ? Meta : never
+  export type Meta<A extends Any> = A extends Source<infer Meta, infer _R, infer _E> ? Meta : never
 
   /**
    * @since 1.0.0
    * @category models
    */
-  export type MetaContext<A extends Any> = A extends Source<infer Meta> ? Context.Context<Meta> : never
+  export type Success<A extends Any> = A extends Source<infer _Meta, infer _R, infer _E> ? Output<_Meta, _R> : never
 
   /**
    * @since 1.0.0
@@ -63,12 +70,13 @@ export type OutputTypeId = typeof OutputTypeId
  * @since 1.0.0
  * @category output
  */
-export class Output<out Meta> extends Data.Class<{
+export class Output<out Meta, in Context = never> extends Data.Class<{
   readonly stream: Stream.Stream<Uint8Array>
   readonly content: Effect.Effect<string>
   readonly contentUint8Array: Effect.Effect<Uint8Array>
   readonly fields: Record<string, unknown>
-  readonly context: Context.Context<Meta>
+  readonly meta: Meta
+  readonly context: Context.Context<Context>
 }> {
   /**
    * @since 1.0.0
@@ -78,7 +86,7 @@ export class Output<out Meta> extends Data.Class<{
   /**
    * @since 1.0.0
    */
-  addMeta<I, S>(tag: Context.Tag<I, S>, value: S): Output<Meta | I> {
+  addContext<I, S>(tag: Context.Tag<I, S>, value: S): Output<Meta, Context | I> {
     return new Output({
       ...this,
       context: Context.add(this.context, tag, value)
@@ -88,7 +96,20 @@ export class Output<out Meta> extends Data.Class<{
   /**
    * @since 1.0.0
    */
-  addField(key: string, value: unknown): Output<Meta> {
+  addMeta<A>(meta: A): Output<MergeRight<Meta, A>, Context> {
+    return new Output({
+      ...this,
+      meta: {
+        ...this.meta,
+        ...meta
+      } as MergeRight<Meta, A>
+    })
+  }
+
+  /**
+   * @since 1.0.0
+   */
+  addField(key: string, value: unknown): Output<Meta, Context> {
     return new Output({
       ...this,
       fields: {
@@ -101,7 +122,7 @@ export class Output<out Meta> extends Data.Class<{
   /**
    * @since 1.0.0
    */
-  addFields(fields: Record<string, unknown>): Output<Meta> {
+  addFields(fields: Record<string, unknown>): Output<Meta, Context> {
     return new Output({
       ...this,
       fields: {
@@ -114,15 +135,26 @@ export class Output<out Meta> extends Data.Class<{
 
 /**
  * @since 1.0.0
+ * @category output
+ */
+export declare namespace Output {
+  /**
+   * @since 1.0.0
+   * @category output
+   */
+  export interface Any {
+    readonly [OutputTypeId]: OutputTypeId
+  }
+}
+
+/**
+ * @since 1.0.0
  * @category file system
  */
-class FileSystemMeta extends Context.Tag("@effect/contentlayer-core/Source/FileSystemMeta")<
-  FileSystemMeta,
-  Path.Path.Parsed & {
-    readonly path: string
-    readonly name: string
-  }
->() {}
+export interface FileSystemMeta extends Path.Path.Parsed {
+  readonly path: string
+  readonly name: string
+}
 
 /**
  * @since 1.0.0
@@ -130,7 +162,7 @@ class FileSystemMeta extends Context.Tag("@effect/contentlayer-core/Source/FileS
  */
 export const fileSystem = (options: {
   readonly paths: ReadonlyArray<string>
-}): Source<FileSystemMeta> =>
+}): Source<FileSystemMeta, never, ContentlayerError> =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const path_ = yield* Path.Path
@@ -151,11 +183,12 @@ export const fileSystem = (options: {
         stream: Stream.orDie(fs.stream(path)),
         content: Effect.orDie(fs.readFileString(path)),
         contentUint8Array: Effect.orDie(fs.readFile(path)),
-        context: FileSystemMeta.context({
+        meta: ({
           ...path_.parse(path),
           path,
           name: path_.basename(path)
         }),
+        context: Context.empty(),
         fields: {}
       })
 

@@ -57,7 +57,7 @@ export declare namespace Document {
     readonly [TypeId]: VarianceStruct<Fields>
 
     readonly addComputedFields: <ComputedFieldSchemas extends Record<string, Schema.Schema.Any>>(
-      fields: ExcludeDuplicates<ComputedFieldSchemas, Fields, Source.Source.Meta<Source>>
+      fields: ExcludeDuplicates<ComputedFieldSchemas, Fields, Source.Source.Success<Source>>
     ) => Document<Schema.Simplify<MergeComputedFields<Fields, ComputedFieldSchemas>>, Source>
   }
 
@@ -67,12 +67,16 @@ export declare namespace Document {
 
   export type Any = Document<any, any>
 
-  export type ExcludeDuplicates<ComputedFieldSchemas extends Record<string, Schema.Schema.Any>, Fields, SourceMeta> = {
+  export type ExcludeDuplicates<
+    ComputedFieldSchemas extends Record<string, Schema.Schema.Any>,
+    Fields,
+    Output extends Source.Output.Any
+  > = {
     [Name in keyof ComputedFieldSchemas]: Name extends (keyof Fields & string) ? "ERROR: I hate my mouse" :
       ComputedField<
         Fields,
         ComputedFieldSchemas[Name],
-        SourceMeta
+        Output
       >
   }
 
@@ -87,13 +91,13 @@ export declare namespace Document {
   export interface ComputedField<
     Fields,
     ResolverSchema extends Schema.Schema.Any,
-    SourceMeta
+    Output extends Source.Output.Any
   > {
     readonly description?: string
     readonly schema: ResolverSchema
     readonly resolve: (
       fields: Fields,
-      meta: SourceMeta
+      output: Output
     ) => Effect.Effect<Schema.Schema.Type<ResolverSchema>>
   }
 }
