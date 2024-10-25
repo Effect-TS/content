@@ -74,7 +74,8 @@ export const make = Effect.gen(function*() {
 
   return {
     config: config.changes.pipe(
-      Stream.filterMap(identity)
+      Stream.filterMap(identity),
+      Stream.debounce("200 millis")
     )
   } as const
 })

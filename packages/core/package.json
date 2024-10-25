@@ -24,6 +24,9 @@
     "effect": "^3.10.2",
     "esbuild": "^0.24.0",
     "glob": "^11.0.0",
+    "rehype-format": "^5.0.1",
+    "rehype-stringify": "^10.0.1",
+    "remark-rehype": "^11.1.1",
     "unified": "^11.0.5",
     "unist": "^0.0.1"
   },
@@ -33,6 +36,7 @@
     "remark-frontmatter": "^5.0.0",
     "remark-parse": "^11.0.0",
     "remark-parse-frontmatter": "^1.0.3",
-    "remark-stringify": "^11.0.0"
+    "remark-stringify": "^11.0.0",
+    "vfile": "^6.0.3"
   }
 }

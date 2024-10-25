@@ -1,16 +1,30 @@
 /**
  * @since 1.0.0
  */
+import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
+import rehypeFormat from "rehype-format"
+import rehypeStringify from "rehype-stringify"
 import remarkFrontmatter from "remark-frontmatter"
 import remarkParse from "remark-parse"
 import remarkParseFrontmatter from "remark-parse-frontmatter"
+import remarkRehype from "remark-rehype"
 import remarkStringify from "remark-stringify"
 import * as Unified from "unified"
 import type * as Unist from "unist"
+import type { VFile } from "vfile"
 import { ContentlayerError } from "./ContentlayerError.js"
 import type * as Source from "./Source.js"
+
+/**
+ * @since 1.0.0
+ * @category unified
+ */
+export class UnifiedOutput extends Context.Tag("@effect/contentlayer-core/SourcePlugin/UnifiedOutput")<
+  UnifiedOutput,
+  VFile
+>() {}
 
 /**
  * @since 1.0.0
@@ -21,18 +35,18 @@ export const unified = <
   HeadTree extends Unist.Node,
   TailTree extends Unist.Node,
   CompileTree extends Unist.Node,
-  Out extends Unified.CompileResults,
-  EX = never
+  Out extends Unified.CompileResults
 >(options: {
   readonly processor:
     | Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>
-    | Effect.Effect<Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>, EX, Source.Source.Provided>
-  readonly metadata: (_: Record<string, any>) => Record<string, any>
+    | Effect.Effect<
+      Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>,
+      ContentlayerError,
+      Source.Source.Provided
+    >
+  readonly extractFields: (vfile: VFile) => Record<string, any>
 }) =>
-<In, InErr>(source: Source.Source<In, InErr>): Source.Source<
-  In,
-  EX | InErr | ContentlayerError
-> =>
+<In>(source: Source.Source<In>): Source.Source<In | UnifiedOutput> =>
   (Effect.isEffect(options.processor) ? options.processor : Effect.succeed(options.processor)).pipe(
     Effect.map((processor) =>
       source.pipe(
@@ -49,10 +63,9 @@ export const unified = <
                 })
             }),
             Effect.map((vfile) =>
-              output.addFields({
-                body: vfile.value,
-                ...options.metadata(vfile.data)
-              })
+              output
+                .addMeta(UnifiedOutput, vfile)
+                .addFields(options.extractFields(vfile))
             )
           )
         )
@@ -71,5 +84,29 @@ export const unifiedRemark = unified({
     .use(remarkStringify)
     .use(remarkFrontmatter)
     .use(remarkParseFrontmatter),
-  metadata: (data) => data.frontmatter ?? {}
+  extractFields: (vfile) => ({
+    ...vfile.data,
+    ...vfile.data?.frontmatter as any,
+    body: vfile.value
+  })
+})
+
+/**
+ * @since 1.0.0
+ * @category unified
+ */
+export const unifiedRemarkRehype = unified({
+  processor: Unified.unified()
+    .use(remarkParse)
+    .use(remarkStringify)
+    .use(remarkFrontmatter)
+    .use(remarkParseFrontmatter)
+    .use(remarkRehype)
+    .use(rehypeFormat)
+    .use(rehypeStringify),
+  extractFields: (vfile) => ({
+    ...vfile.data,
+    ...vfile.data?.frontmatter as any,
+    body: vfile.value
+  })
 })
