@@ -1,7 +1,6 @@
 /**
  * @since 1.0.0
  */
-import * as Console from "effect/Console"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -10,10 +9,22 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import { ConfigBuilder } from "./ConfigBuilder.js"
 import type * as Document from "./Document.js"
+import { DocumentStorage } from "./DocumentStorage.js"
 import type * as Source from "./Source.js"
+
+/**
+ * @since 1.0.0
+ * @category models
+ */
+export interface BuiltDocument {
+  readonly document: Document.Document.Any
+  readonly fields: Record<string, unknown>
+  readonly output: Source.Output<unknown>
+}
 
 const make = Effect.gen(function*() {
   const config = yield* ConfigBuilder
+  const storage = yield* DocumentStorage
 
   const documents = config.config.pipe(
     Stream.flatMap((config) =>
@@ -27,12 +38,8 @@ const make = Effect.gen(function*() {
             Schema.decode(document.fields)(output.fields) as Effect.Effect<Record<string, unknown>, ParseError>,
             (fields) => resolveComputedFields({ document, output, fields })
           ), { concurrency: "unbounded" }),
-        Stream.runForEach((_) =>
-          Console.dir({
-            meta: _.output.meta,
-            fields: _.fields
-          }, { depth: null })
-        ),
+        Stream.mapEffect(storage.write, { concurrency: "unbounded" }),
+        Stream.runDrain,
         Effect.catchAllCause((cause) => Effect.logError("Error building documents", cause)),
         Effect.annotateLogs({
           module: "@effect/contentlayer-core/DocumentBuilder"
@@ -56,7 +63,8 @@ export class DocumentBuilder extends Context.Tag("@effect/contentlayer-core/Docu
   static readonly layer = Layer.scoped(DocumentBuilder, make)
 
   static readonly Live = this.layer.pipe(
-    Layer.provide(ConfigBuilder.Live)
+    Layer.provide(ConfigBuilder.Live),
+    Layer.provide(DocumentStorage.Default)
   )
 }
 

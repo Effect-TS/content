@@ -51,7 +51,7 @@ export interface Document<
 
 export declare namespace Document {
   export interface Proto<
-    in out Fields,
+    in out Fields extends Schema.Struct.Fields,
     in out Source extends Source.Source.Any
   > extends Pipeable {
     readonly [TypeId]: VarianceStruct<Fields>
@@ -69,10 +69,10 @@ export declare namespace Document {
 
   export type ExcludeDuplicates<
     ComputedFieldSchemas extends Record<string, Schema.Schema.Any>,
-    Fields,
+    Fields extends Schema.Struct.Fields,
     Output extends Source.Output.Any
   > = {
-    [Name in keyof ComputedFieldSchemas]: Name extends (keyof Fields & string) ? "ERROR: I hate my mouse" :
+    [Name in keyof ComputedFieldSchemas]: Name extends (keyof Fields & string) ? `Duplicate field: ${Name}` :
       ComputedField<
         Fields,
         ComputedFieldSchemas[Name],
@@ -89,14 +89,14 @@ export declare namespace Document {
   export type AnyComputedField = ComputedField<any, any, any>
 
   export interface ComputedField<
-    Fields,
+    Fields extends Schema.Struct.Fields,
     ResolverSchema extends Schema.Schema.Any,
     Output extends Source.Output.Any
   > {
     readonly description?: string
     readonly schema: ResolverSchema
     readonly resolve: (
-      fields: Fields,
+      fields: Schema.Simplify<Schema.Struct.Type<Fields>>,
       output: Output
     ) => Effect.Effect<Schema.Schema.Type<ResolverSchema>>
   }

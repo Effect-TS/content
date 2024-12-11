@@ -71,6 +71,7 @@ export type OutputTypeId = typeof OutputTypeId
  * @category output
  */
 export class Output<out Meta, in Context = never> extends Data.Class<{
+  readonly id: string
   readonly stream: Stream.Stream<Uint8Array>
   readonly content: Effect.Effect<string>
   readonly contentUint8Array: Effect.Effect<Uint8Array>
@@ -180,6 +181,7 @@ export const fileSystem = (options: {
 
     const loadMeta = (path: string): Output<FileSystemMeta> =>
       new Output({
+        id: path,
         stream: Stream.orDie(fs.stream(path)),
         content: Effect.orDie(fs.readFileString(path)),
         contentUint8Array: Effect.orDie(fs.readFile(path)),

@@ -13,6 +13,7 @@ import remarkRehype from "remark-rehype"
 import remarkStringify from "remark-stringify"
 import * as Unified from "unified"
 import type * as Unist from "unist"
+import * as Remove from "unist-util-remove"
 import type { VFile } from "vfile"
 import { ContentlayerError } from "./ContentlayerError.js"
 import type * as Source from "./Source.js"
@@ -77,6 +78,10 @@ export const unified = <
     Stream.unwrap
   )
 
+const removeYaml: Unified.Plugin = () => (tree) => {
+  Remove.remove(tree, "yaml")
+}
+
 /**
  * @since 1.0.0
  * @category unified
@@ -86,7 +91,8 @@ export const unifiedRemark = unified({
     .use(remarkParse)
     .use(remarkStringify)
     .use(remarkFrontmatter)
-    .use(remarkParseFrontmatter),
+    .use(remarkParseFrontmatter)
+    .use(removeYaml),
   extractFields: (vfile) => ({
     ...vfile.data,
     ...vfile.data?.frontmatter as any,
@@ -104,6 +110,7 @@ export const unifiedRemarkRehype = unified({
     .use(remarkStringify)
     .use(remarkFrontmatter)
     .use(remarkParseFrontmatter)
+    .use(removeYaml)
     .use(remarkRehype)
     .use(rehypeFormat)
     .use(rehypeStringify),
