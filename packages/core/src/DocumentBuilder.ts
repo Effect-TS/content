@@ -2,6 +2,7 @@
  * @since 1.0.0
  */
 import * as Context from "effect/Context"
+import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import type { ParseError } from "effect/ParseResult"
@@ -11,6 +12,7 @@ import { ConfigBuilder } from "./ConfigBuilder.js"
 import type * as Document from "./Document.js"
 import { DocumentStorage } from "./DocumentStorage.js"
 import type * as Source from "./Source.js"
+import * as TypeBuilder from "./TypeBuilder.js"
 
 /**
  * @since 1.0.0
@@ -27,8 +29,14 @@ const make = Effect.gen(function*() {
   const storage = yield* DocumentStorage
 
   const documents = config.config.pipe(
-    Stream.flatMap((config) =>
-      Stream.fromIterable(config.documents).pipe(
+    Stream.tap(() => Effect.log("Building documents")),
+    Stream.flatMap((config) => {
+      const renderTypes = Effect.suspend(() => {
+        const types = config.documents.map((doc) => TypeBuilder.renderDocument(doc))
+        return storage.writeTypes(types)
+      })
+
+      const renderDocs = Stream.fromIterable(config.documents).pipe(
         Stream.bindTo("document"),
         Stream.bind("output", ({ document }) => document.source as Stream.Stream<Source.Output<unknown>>, {
           concurrency: "unbounded"
@@ -39,12 +47,17 @@ const make = Effect.gen(function*() {
             (fields) => resolveComputedFields({ document, output, fields })
           ), { concurrency: "unbounded" }),
         Stream.mapEffect(storage.write, { concurrency: "unbounded" }),
-        Stream.runDrain,
-        Effect.catchAllCause((cause) => Effect.logError("Error building documents", cause)),
-        Effect.annotateLogs({
-          module: "@effect/contentlayer-core/DocumentBuilder"
+        Stream.runDrain
+      )
+
+      return Effect.all([renderDocs, renderTypes], { concurrency: "unbounded" }).pipe(
+        Effect.timed,
+        Effect.matchCauseEffect({
+          onSuccess: ([duration]) => Effect.log(`Documents built successfully in ${Duration.format(duration)}`),
+          onFailure: (cause) => Effect.logError("Error building documents", cause)
         })
-      ), { switch: true }),
+      )
+    }, { switch: true }),
     Stream.runDrain,
     Effect.forkScoped
   )

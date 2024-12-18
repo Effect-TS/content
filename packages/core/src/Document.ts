@@ -134,7 +134,7 @@ const makeInternal = (options: {
 }) =>
   Object.assign(Object.create(Proto), {
     name: options.name,
-    description: Option.fromNullable(options.description),
+    description: options.description,
     source: options.source,
     fields: options.fields,
     computedFields: options.computedFields

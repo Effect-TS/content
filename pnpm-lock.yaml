@@ -173,6 +173,9 @@ importers:
       remark-rehype:
         specifier: ^11.1.1
         version: 11.1.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.7.2
       unified:
         specifier: ^11.0.5
         version: 11.0.5

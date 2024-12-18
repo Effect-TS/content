@@ -60,7 +60,15 @@ export class DocumentStorage extends Effect.Service<DocumentStorage>()("@effect/
         yield* fs.writeFileString(path, encodedFieldsJson)
       })
 
-    return { write } as const
+    const writeTypes = (types: ReadonlyArray<string>) =>
+      Effect.gen(function*() {
+        const dir = path_.join(".contentlayer", "generated")
+        const path = path_.join(dir, "types.ts")
+        yield* fs.makeDirectory(dir, { recursive: true })
+        yield* fs.writeFileString(path, types.join("\n\n"))
+      })
+
+    return { write, writeTypes } as const
   }),
   dependencies: [NodeFileSystem.layer, NodePath.layer]
 }) {}
