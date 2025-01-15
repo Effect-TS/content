@@ -14,6 +14,7 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as Glob from "glob"
 import { ContentlayerError } from "./ContentlayerError.js"
+import { WatchMode } from "./References.js"
 
 /**
  * @since 1.0.0
@@ -33,11 +34,12 @@ export type TypeId = typeof TypeId
  */
 export interface Source<in out Meta, in Context = never, out E = never> extends Pipeable {
   readonly [TypeId]: TypeId
-  readonly stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+  readonly additions: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+  readonly removals: Stream.Stream<string, never, Source.Provided>
   readonly metaSchema: Schema.Schema<Meta, any>
 }
 
-const SourceProto: Omit<Source<any, any, any>, "stream" | "metaSchema"> = {
+const SourceProto: Omit<Source<any, any, any>, "additions" | "metaSchema" | "removals"> = {
   [TypeId]: TypeId,
   pipe() {
     return pipeArguments(this, arguments)
@@ -48,12 +50,14 @@ const SourceProto: Omit<Source<any, any, any>, "stream" | "metaSchema"> = {
  * @since 1.0.0
  * @category constructors
  */
-export const make = <Meta, Context, E>(options: {
-  readonly stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+export const make = <Meta, Context, EA>(options: {
+  readonly additions: Stream.Stream<Output<Meta, Context>, EA, Source.Provided>
+  readonly removals?: Stream.Stream<string, never, Source.Provided>
   readonly metaSchema: Schema.Schema<Meta, any>
-}): Source<Meta, Context, E> => ({
+}): Source<Meta, Context, EA> => ({
   ...SourceProto,
-  ...options
+  ...options,
+  removals: options.removals ?? Stream.empty
 })
 
 /**
@@ -79,7 +83,8 @@ export const transform: {
   ) => Stream.Stream<Output<Meta, Context2>, E2, Source.Provided>
 ): Source<Meta, Context2, E2> =>
   make({
-    stream: f(self.stream),
+    additions: f(self.additions),
+    removals: self.removals,
     metaSchema: self.metaSchema
   }))
 
@@ -227,6 +232,7 @@ export const fileSystem = (options: {
   readonly paths: ReadonlyArray<string>
 }): Source<FileSystemMeta, never, ContentlayerError> => {
   const stream = Effect.gen(function*() {
+    const watchMode = yield* WatchMode
     const fs = yield* FileSystem.FileSystem
     const path_ = yield* Path.Path
 
@@ -261,7 +267,9 @@ export const fileSystem = (options: {
   }).pipe(Stream.unwrap)
 
   return make({
-    stream,
+    additions: stream,
+    // TODO: setup watchers
+    removals: Stream.empty,
     metaSchema: FileSystemMeta
   })
 }

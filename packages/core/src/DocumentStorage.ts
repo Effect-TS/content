@@ -68,7 +68,15 @@ export class DocumentStorage extends Effect.Service<DocumentStorage>()("@effect/
         yield* fs.writeFileString(path, types.join("\n\n"))
       })
 
-    return { write, writeTypes } as const
+    const writeIds = (types: Iterable<string>) =>
+      Effect.gen(function*() {
+        // const dir = path_.join(".contentlayer", "generated")
+        // const path = path_.join(dir, "types.ts")
+        // yield* fs.makeDirectory(dir, { recursive: true })
+        // yield* fs.writeFileString(path, types.join("\n\n"))
+      })
+
+    return { write, writeIds, writeTypes } as const
   }),
   dependencies: [NodeFileSystem.layer, NodePath.layer]
 }) {}
