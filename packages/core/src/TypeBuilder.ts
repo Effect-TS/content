@@ -4,16 +4,41 @@
 import * as Arr from "effect/Array"
 import { pipe } from "effect/Function"
 import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as AST from "effect/SchemaAST"
 import ts from "typescript"
 import type { Document } from "./Document.js"
+import type { Source } from "./Source.js"
+
+/**
+ * @since 1.0.0
+ * @category schemas
+ */
+export const BuiltDocumentSchema = <
+  Fields extends Schema.Struct.Fields,
+  Source extends Source.Any
+>(
+  document: Document<Fields, Source>
+): Schema.Struct<{
+  id: typeof Schema.String
+  fields: Schema.Struct<Fields>
+  meta: Schema.Schema<any, any, never>
+}> =>
+  Schema.Struct({
+    id: Schema.String,
+    fields: document.fields,
+    meta: document.source.metaSchema
+  })
 
 /**
  * @since 1.0.0
  * @category constructors
  */
-export const renderDocument = (
-  document: Document.Any,
+export const renderDocument = <
+  Fields extends Schema.Struct.Fields,
+  Source extends Source.Any
+>(
+  document: Document<Fields, Source>,
   options?: ts.PrinterOptions
 ): string => {
   const declarations: Array<ts.Node> = []
@@ -243,7 +268,7 @@ export const renderDocument = (
       }
     }
   }
-  const typeNode = Option.getOrThrow(go(document.fields.ast))
+  const typeNode = Option.getOrThrow(go(BuiltDocumentSchema(document).ast))
   const documentType = ts.factory.createTypeAliasDeclaration(
     [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
     ts.factory.createIdentifier(document.name),

@@ -7,18 +7,81 @@ import * as Path from "@effect/platform/Path"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
+import { dual } from "effect/Function"
+import type { Pipeable } from "effect/Pipeable"
+import { pipeArguments } from "effect/Pipeable"
+import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
-import type { MergeRight } from "effect/Types"
 import * as Glob from "glob"
 import { ContentlayerError } from "./ContentlayerError.js"
 
 /**
  * @since 1.0.0
+ * @category symbols
+ */
+export const TypeId: unique symbol = Symbol.for("@effect/contentlayer-core/Source")
+
+/**
+ * @since 1.0.0
+ * @category symbols
+ */
+export type TypeId = typeof TypeId
+
+/**
+ * @since 1.0.0
  * @category models
  */
-export interface Source<out Meta, in Context = never, out E = never>
-  extends Stream.Stream<Output<Meta, Context>, E, Source.Provided>
-{}
+export interface Source<in out Meta, in Context = never, out E = never> extends Pipeable {
+  readonly [TypeId]: TypeId
+  readonly stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+  readonly metaSchema: Schema.Schema<Meta, any>
+}
+
+const SourceProto: Omit<Source<any, any, any>, "stream" | "metaSchema"> = {
+  [TypeId]: TypeId,
+  pipe() {
+    return pipeArguments(this, arguments)
+  }
+}
+
+/**
+ * @since 1.0.0
+ * @category constructors
+ */
+export const make = <Meta, Context, E>(options: {
+  readonly stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+  readonly metaSchema: Schema.Schema<Meta, any>
+}): Source<Meta, Context, E> => ({
+  ...SourceProto,
+  ...options
+})
+
+/**
+ * @since 1.0.0
+ * @category combinators
+ */
+export const transform: {
+  <Meta, Context, E, E2, Context2>(
+    f: (
+      stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+    ) => Stream.Stream<Output<Meta, Context2>, E2, Source.Provided>
+  ): (source: Source<Meta, Context, E>) => Source<Meta, Context2, E2>
+  <Meta, Context, E, E2, Context2>(
+    self: Source<Meta, Context, E>,
+    f: (
+      stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+    ) => Stream.Stream<Output<Meta, Context2>, E2, Source.Provided>
+  ): Source<Meta, Context2, E2>
+} = dual(2, <Meta, Context, E, E2, Context2>(
+  self: Source<Meta, Context, E>,
+  f: (
+    stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
+  ) => Stream.Stream<Output<Meta, Context2>, E2, Source.Provided>
+): Source<Meta, Context2, E2> =>
+  make({
+    stream: f(self.stream),
+    metaSchema: self.metaSchema
+  }))
 
 /**
  * @since 1.0.0
@@ -97,19 +160,6 @@ export class Output<out Meta, in Context = never> extends Data.Class<{
   /**
    * @since 1.0.0
    */
-  addMeta<A>(meta: A): Output<MergeRight<Meta, A>, Context> {
-    return new Output({
-      ...this,
-      meta: {
-        ...this.meta,
-        ...meta
-      } as MergeRight<Meta, A>
-    })
-  }
-
-  /**
-   * @since 1.0.0
-   */
   addField(key: string, value: unknown): Output<Meta, Context> {
     return new Output({
       ...this,
@@ -154,8 +204,20 @@ export declare namespace Output {
  */
 export interface FileSystemMeta extends Path.Path.Parsed {
   readonly path: string
-  readonly name: string
 }
+
+/**
+ * @since 1.0.0
+ * @category file system
+ */
+export const FileSystemMeta: Schema.Schema<FileSystemMeta> = Schema.Struct({
+  root: Schema.String,
+  dir: Schema.String,
+  base: Schema.String,
+  ext: Schema.String,
+  path: Schema.String,
+  name: Schema.String
+})
 
 /**
  * @since 1.0.0
@@ -163,8 +225,8 @@ export interface FileSystemMeta extends Path.Path.Parsed {
  */
 export const fileSystem = (options: {
   readonly paths: ReadonlyArray<string>
-}): Source<FileSystemMeta, never, ContentlayerError> =>
-  Effect.gen(function*() {
+}): Source<FileSystemMeta, never, ContentlayerError> => {
+  const stream = Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const path_ = yield* Path.Path
 
@@ -187,8 +249,7 @@ export const fileSystem = (options: {
         contentUint8Array: Effect.orDie(fs.readFile(path)),
         meta: ({
           ...path_.parse(path),
-          path,
-          name: path_.basename(path)
+          path
         }),
         context: Context.empty(),
         fields: {}
@@ -198,3 +259,9 @@ export const fileSystem = (options: {
       Stream.map(loadMeta)
     )
   }).pipe(Stream.unwrap)
+
+  return make({
+    stream,
+    metaSchema: FileSystemMeta
+  })
+}

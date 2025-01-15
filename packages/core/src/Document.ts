@@ -65,7 +65,7 @@ export declare namespace Document {
     readonly _Fields: Invariant<Fields>
   }
 
-  export type Any = Document<any, any>
+  export type Any = Document<any, Source.Source.Any>
 
   export type ExcludeDuplicates<
     ComputedFieldSchemas extends Record<string, Schema.Schema.Any>,

@@ -21,13 +21,13 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "effect": "^3.11.8",
-    "esbuild": "^0.24.0",
-    "glob": "^11.0.0",
+    "effect": "^3.12.4",
+    "esbuild": "^0.24.2",
+    "glob": "^11.0.1",
     "rehype-format": "^5.0.1",
     "rehype-stringify": "^10.0.1",
     "remark-rehype": "^11.1.1",
-    "typescript": "^5.7.2",
+    "typescript": "^5.7.3",
     "unified": "^11.0.5",
     "unist": "^0.0.1",
     "unist-util-remove": "^4.0.0",

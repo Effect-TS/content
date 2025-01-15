@@ -16,7 +16,7 @@ import type * as Unist from "unist"
 import * as Remove from "unist-util-remove"
 import type { VFile } from "vfile"
 import { ContentlayerError } from "./ContentlayerError.js"
-import type * as Source from "./Source.js"
+import * as Source from "./Source.js"
 
 /**
  * @since 1.0.0
@@ -51,31 +51,35 @@ export const unified = <
 <Meta, In, E>(
   source: Source.Source<Meta, In, E>
 ): Source.Source<Meta, In | UnifiedOutput, E | EX | ContentlayerError> =>
-  (Effect.isEffect(options.processor) ? options.processor : Effect.succeed(options.processor)).pipe(
-    Effect.map((processor) =>
-      source.pipe(
-        Stream.mapEffect((output) =>
-          output.content.pipe(
-            Effect.tryMapPromise({
-              try: (content) => processor.process(content),
-              catch: (cause) =>
-                new ContentlayerError({
-                  module: "SourcePlugin",
-                  method: "unified",
-                  description: "Error processing content",
-                  cause
-                })
-            }),
-            Effect.map((vfile) =>
-              output
-                .addContext(UnifiedOutput, vfile)
-                .addFields(options.extractFields(vfile))
+  Source.transform(
+    source,
+    (source) =>
+      (Effect.isEffect(options.processor) ? options.processor : Effect.succeed(options.processor)).pipe(
+        Effect.map((processor) =>
+          source.pipe(
+            Stream.mapEffect((output) =>
+              output.content.pipe(
+                Effect.tryMapPromise({
+                  try: (content) => processor.process(content),
+                  catch: (cause) =>
+                    new ContentlayerError({
+                      module: "SourcePlugin",
+                      method: "unified",
+                      description: "Error processing content",
+                      cause
+                    })
+                }),
+                Effect.map((vfile) =>
+                  output
+                    .addContext(UnifiedOutput, vfile)
+                    .addFields(options.extractFields(vfile))
+                )
+              )
             )
           )
-        )
+        ),
+        Stream.unwrap
       )
-    ),
-    Stream.unwrap
   )
 
 const removeYaml: Unified.Plugin = () => (tree) => {

@@ -38,7 +38,7 @@ const make = Effect.gen(function*() {
 
       const renderDocs = Stream.fromIterable(config.documents).pipe(
         Stream.bindTo("document"),
-        Stream.bind("output", ({ document }) => document.source as Stream.Stream<Source.Output<unknown>>, {
+        Stream.bind("output", ({ document }) => document.source.stream, {
           concurrency: "unbounded"
         }),
         Stream.bind("fields", ({ document, output }) =>
