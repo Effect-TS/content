@@ -20,11 +20,11 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@effect/cli": "^0.52.1",
+    "@effect/cli": "^0.54.1",
     "@effect/contentlayer-core": "workspace:^",
-    "@effect/experimental": "^0.37.1",
-    "@effect/platform": "^0.73.1",
-    "@effect/platform-node": "^0.69.1",
-    "effect": "^3.12.4"
+    "@effect/experimental": "^0.39.1",
+    "@effect/platform": "^0.75.1",
+    "@effect/platform-node": "^0.71.1",
+    "effect": "^3.12.7"
   }
 }

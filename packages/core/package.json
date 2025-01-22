@@ -21,7 +21,7 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "effect": "^3.12.4",
+    "effect": "^3.12.7",
     "esbuild": "^0.24.2",
     "glob": "^11.0.1",
     "rehype-format": "^5.0.1",
