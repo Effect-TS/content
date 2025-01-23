@@ -14,7 +14,6 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as Glob from "glob"
 import { ContentlayerError } from "./ContentlayerError.js"
-import { WatchMode } from "./References.js"
 
 /**
  * @since 1.0.0
@@ -232,7 +231,7 @@ export const fileSystem = (options: {
   readonly paths: ReadonlyArray<string>
 }): Source<FileSystemMeta, never, ContentlayerError> => {
   const stream = Effect.gen(function*() {
-    const watchMode = yield* WatchMode
+    // const watchMode = yield* WatchMode
     const fs = yield* FileSystem.FileSystem
     const path_ = yield* Path.Path
 

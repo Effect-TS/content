@@ -9,7 +9,9 @@ import * as Effect from "effect/Effect"
 import { globalValue } from "effect/GlobalValue"
 import type { ParseError } from "effect/ParseResult"
 import * as Schema from "effect/Schema"
+import type { Document } from "./Document.js"
 import type { BuiltDocument } from "./DocumentBuilder.js"
+import * as TypeBuilder from "./TypeBuilder.js"
 
 /**
  * @since 1.0.0
@@ -44,42 +46,135 @@ export class DocumentStorage extends Effect.Service<DocumentStorage>()("@effect/
   effect: Effect.gen(function*() {
     const fs = yield* FileSystem
     const path_ = yield* Path
+    const outputDir = path_.join(".contentlayer", "generated")
 
-    const write = ({ document, fields, output }: BuiltDocument) =>
-      Effect.gen(function*() {
-        const persistedDocument = PersistedDocument(document.fields)
-        const hashedId = yield* sha256(new TextEncoder().encode(output.id))
-        const dir = path_.join(".contentlayer", "generated", document.name)
-        const path = path_.join(dir, `${hashedId}.json`)
-        yield* fs.makeDirectory(dir, { recursive: true })
-        const encodedFieldsJson = yield* (Schema.encode(persistedDocument)({
-          id: output.id,
-          fields,
-          meta: output.meta
-        }) as Effect.Effect<string, ParseError>)
-        yield* fs.writeFileString(path, encodedFieldsJson)
-      })
+    const write = Effect.fnUntraced(function*({ document, fields, output }: BuiltDocument) {
+      const persistedDocument = PersistedDocument(document.fields)
+      const hashedId = yield* sha256String(output.id)
+      const dir = path_.join(outputDir, document.name)
+      const path = path_.join(dir, `${hashedId}.json`)
+      yield* fs.makeDirectory(dir, { recursive: true })
+      const encodedFieldsJson = yield* (Schema.encode(persistedDocument)({
+        id: output.id,
+        fields,
+        meta: output.meta
+      }) as Effect.Effect<string, ParseError>)
+      yield* fs.writeFileString(path, encodedFieldsJson)
+    })
 
-    const writeTypes = (types: ReadonlyArray<string>) =>
-      Effect.gen(function*() {
-        const dir = path_.join(".contentlayer", "generated")
-        const path = path_.join(dir, "types.ts")
-        yield* fs.makeDirectory(dir, { recursive: true })
-        yield* fs.writeFileString(path, types.join("\n\n"))
-      })
+    const writeIndex = Effect.fnUntraced(function*(documents: ReadonlyArray<Document.Any>) {
+      const dir = path_.join(".contentlayer", "generated")
+      yield* fs.makeDirectory(dir, { recursive: true })
 
-    const writeIds = (types: Iterable<string>) =>
-      Effect.gen(function*() {
-        // const dir = path_.join(".contentlayer", "generated")
-        // const path = path_.join(dir, "types.ts")
-        // yield* fs.makeDirectory(dir, { recursive: true })
-        // yield* fs.writeFileString(path, types.join("\n\n"))
-      })
+      const packageJson = {
+        "name": "@effect/contentlayer-generated",
+        "type": "module",
+        "types": "./types.d.ts",
+        "exports": {
+          ".": "./index.js",
+          ...Object.fromEntries(documents.map((document) => [
+            `./${document.name}`,
+            `./${document.name}/index.js`
+          ]))
+        }
+      }
+      yield* fs.writeFileString(path_.join(dir, "package.json"), JSON.stringify(packageJson, null, 2))
 
-    return { write, writeIds, writeTypes } as const
+      const types = documents.map((doc) => TypeBuilder.renderDocument(doc))
+      const typeExports = documents.map((doc) => `export const all${doc.name}s: ReadonlyArray<${doc.name}>`)
+      const documentModules = documents.map((doc) =>
+        `declare module "@effect/contentlayer-generated/${doc.name}" {
+  const all: ReadonlyArray<${doc.name}>
+  export default all
+}`
+      )
+      yield* fs.writeFileString(
+        path_.join(dir, "types.d.ts"),
+        `${types.join("\n\n")}
+
+declare module "@effect/contentlayer-generated" {
+  export { ${documents.map((doc) => doc.name).join(", ")} }
+  ${typeExports.join("\n")}
+}
+
+${documentModules.join("\n\n")}
+`
+      )
+
+      const imports: Array<string> = []
+      const exports: Array<string> = []
+
+      for (const document of documents) {
+        imports.push(`import all${document.name}s from "./${document.name}/index.js"`)
+        exports.push(`all${document.name}s`)
+      }
+
+      yield* fs.writeFileString(
+        path_.join(dir, "index.js"),
+        `${imports.join("\n")}
+
+export { ${exports.join(", ")} }`
+      )
+    })
+
+    const currentIdHashes = new Map<string, Set<string>>()
+
+    const writeIds = Effect.fnUntraced(function*(documentName: string, newIds: Set<string>) {
+      let idHashes = currentIdHashes.get(documentName)
+      if (!idHashes) {
+        const files = yield* Effect.orDie(fs.readDirectory(path_.join(outputDir, documentName)))
+        idHashes = new Set(files.map((file) => path_.basename(file, ".json")))
+        currentIdHashes.set(documentName, idHashes)
+      }
+
+      // generate index
+      const imports: Array<string> = []
+      const exports: Array<string> = []
+      const newIdHashes: Array<string> = []
+      const toRemove: Array<string> = []
+      let i = 1
+      for (const id of newIds) {
+        const index = i++
+        const idHash = yield* sha256String(id)
+        newIdHashes.push(idHash)
+        imports.push(`import document${index} from "./${idHash}.json" assert { type: "json" }`)
+        exports.push(`document${index}`)
+        if (!idHashes.has(idHash)) {
+          toRemove.push(idHash)
+        }
+      }
+
+      // update currentIds
+      currentIdHashes.set(documentName, idHashes)
+
+      const output = `${imports.join("\n")}
+
+export default [${exports.join(", ")}]
+`
+      yield* fs.writeFileString(path_.join(outputDir, documentName, "index.js"), output)
+
+      // remove missing ids
+      yield* Effect.ignore(
+        Effect.forEach(toRemove, (id) => fs.remove(path_.join(outputDir, documentName, `${id}.json`)), {
+          concurrency: 15
+        })
+      )
+    })
+
+    return { write, writeIds, writeIndex } as const
   }),
   dependencies: [NodeFileSystem.layer, NodePath.layer]
 }) {}
+
+const hashCache = new Map<string, string>()
+const sha256String = (data: string) => {
+  if (hashCache.has(data)) {
+    return Effect.succeed(hashCache.get(data)!)
+  }
+  return Effect.tap(sha256(new TextEncoder().encode(data)), (hash) => {
+    hashCache.set(data, hash)
+  })
+}
 
 const sha256 = (data: Uint8Array) =>
   Effect.map(

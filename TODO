@@ -1,6 +1,3 @@
+- tweak .d.ts files to export all modules
+- module resolution
 - setup content watchers in fs source
-- generate index file from ids
-
-- create modules
-- create package
-- create .d.ts files

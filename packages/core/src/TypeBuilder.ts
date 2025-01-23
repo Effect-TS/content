@@ -1,6 +1,7 @@
 /**
  * @since 1.0.0
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import * as Arr from "effect/Array"
 import { pipe } from "effect/Function"
 import * as Option from "effect/Option"

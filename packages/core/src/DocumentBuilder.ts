@@ -12,8 +12,8 @@ import * as Stream from "effect/Stream"
 import { ConfigBuilder } from "./ConfigBuilder.js"
 import type * as Document from "./Document.js"
 import { DocumentStorage } from "./DocumentStorage.js"
+import { WatchMode } from "./References.js"
 import type * as Source from "./Source.js"
-import * as TypeBuilder from "./TypeBuilder.js"
 
 /**
  * @since 1.0.0
@@ -34,27 +34,34 @@ const make = Effect.gen(function*() {
     Stream.flatMap(
       Effect.fnUntraced(
         function*(config) {
-          const ids = new Set<string>()
-          const idMailbox = yield* Mailbox.make<void, any>({ capacity: 1, strategy: "dropping" })
+          const ids = new Map<string, Set<string>>()
+          const idMailbox = yield* Mailbox.make<void, any>()
+          const watchMode = yield* WatchMode
 
-          yield* Stream.fromIterable(config.documents).pipe(
-            Stream.flatMap((doc) => doc.source.removals, { concurrency: "unbounded" }),
-            Stream.runForEach((id) =>
-              Effect.sync(() => {
-                if (!ids.has(id)) return
-                ids.delete(id)
-                idMailbox.offer(undefined)
-              })
-            ),
-            Effect.fork
-          )
+          if (watchMode) {
+            yield* Stream.fromIterable(config.documents).pipe(
+              Stream.flatMap((doc) => doc.source.removals, { concurrency: "unbounded" }),
+              Stream.runForEach((id) =>
+                Effect.sync(() => {
+                  if (!ids.has(id)) return
+                  ids.delete(id)
+                  idMailbox.offer(undefined)
+                })
+              ),
+              Effect.fork
+            )
+          }
 
-          const types = config.documents.map((doc) => TypeBuilder.renderDocument(doc))
-          yield* Effect.fork(storage.writeTypes(types))
+          yield* Effect.fork(storage.writeIndex(config.documents))
 
           yield* Mailbox.toStream(idMailbox).pipe(
             Stream.debounce(500),
-            Stream.runForEach(() => storage.writeIds(ids)),
+            Stream.runForEach(() =>
+              Effect.forEach(ids, ([documentName, newIds]) => storage.writeIds(documentName, newIds), {
+                concurrency: "unbounded"
+              })
+            ),
+            Effect.catchAllCause(Effect.log),
             Effect.fork,
             Effect.uninterruptible
           )
@@ -70,11 +77,16 @@ const make = Effect.gen(function*() {
                 (fields) => resolveComputedFields({ document, output, fields })
               ), { concurrency: "unbounded" }),
             Stream.mapEffect((out) => Effect.as(storage.write(out), out), { concurrency: "unbounded" }),
-            Stream.runForEach(({ output }) =>
+            Stream.runForEach(({ document, output }) =>
               Effect.sync(() => {
-                if (ids.has(output.id)) return
-                ids.add(output.id)
-                idMailbox.offer(undefined)
+                let documentIds = ids.get(document.name)
+                if (!documentIds) {
+                  documentIds = new Set()
+                  ids.set(document.name, documentIds)
+                }
+                if (documentIds.has(output.id)) return
+                documentIds.add(output.id)
+                idMailbox.unsafeOffer(undefined)
               })
             ),
             Effect.onExit((exit) => idMailbox.done(exit))

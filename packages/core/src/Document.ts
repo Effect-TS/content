@@ -150,9 +150,16 @@ export const make = <
   readonly fields: Fields
 }): Document<Fields, Source> =>
   makeInternal({
-    name: options.name,
+    name: validateDocumentName(options.name),
     description: Option.fromNullable(options.description),
     source: options.source,
     fields: Schema.Struct(options.fields),
     computedFields: []
   })
+
+const validateDocumentName = (name: string) => {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Document name "${name}" is not a valid variable name`)
+  }
+  return name
+}
