@@ -52,7 +52,12 @@ const make = Effect.gen(function*() {
             )
           }
 
-          yield* Effect.fork(storage.writeIndex(config.documents))
+          yield* storage.writeIndex(config.documents).pipe(
+            Effect.catchAllCause(Effect.logWarning),
+            Effect.annotateLogs({ fiber: "writeIndex" }),
+            Effect.uninterruptible,
+            Effect.fork
+          )
 
           yield* Mailbox.toStream(idMailbox).pipe(
             Stream.debounce(500),
@@ -61,9 +66,10 @@ const make = Effect.gen(function*() {
                 concurrency: "unbounded"
               })
             ),
-            Effect.catchAllCause(Effect.log),
-            Effect.fork,
-            Effect.uninterruptible
+            Effect.catchAllCause(Effect.logWarning),
+            Effect.annotateLogs({ fiber: "writeIds" }),
+            Effect.uninterruptible,
+            Effect.fork
           )
 
           yield* Stream.fromIterable(config.documents).pipe(

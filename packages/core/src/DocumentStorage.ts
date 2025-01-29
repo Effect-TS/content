@@ -63,54 +63,53 @@ export class DocumentStorage extends Effect.Service<DocumentStorage>()("@effect/
     })
 
     const writeIndex = Effect.fnUntraced(function*(documents: ReadonlyArray<Document.Any>) {
-      const dir = path_.join(".contentlayer", "generated")
+      const tld = path_.join(".contentlayer")
+      const dir = path_.join(tld, "generated")
       yield* fs.makeDirectory(dir, { recursive: true })
 
+      // package.json
       const packageJson = {
         "name": "@effect/contentlayer-generated",
         "type": "module",
-        "types": "./types.d.ts",
+        "typesVersions": {
+          "*": {
+            "generated": ["./generated"]
+          }
+        },
         "exports": {
-          ".": "./index.js",
-          ...Object.fromEntries(documents.map((document) => [
-            `./${document.name}`,
-            `./${document.name}/index.js`
-          ]))
+          ".": "./generated.js"
         }
       }
-      yield* fs.writeFileString(path_.join(dir, "package.json"), JSON.stringify(packageJson, null, 2))
+      yield* fs.writeFileString(path_.join(tld, "package.json"), JSON.stringify(packageJson, null, 2))
 
+      // types.d.ts
       const types = documents.map((doc) => TypeBuilder.renderDocument(doc))
-      const typeExports = documents.map((doc) => `export const all${doc.name}s: ReadonlyArray<${doc.name}>`)
-      const documentModules = documents.map((doc) =>
-        `declare module "@effect/contentlayer-generated/${doc.name}" {
-  const all: ReadonlyArray<${doc.name}>
-  export default all
-}`
-      )
+      yield* fs.writeFileString(path_.join(dir, "types.d.ts"), types.join("\n\n"))
+
+      // generated.d.ts
+      const collectionExports = documents.map((doc) => `export const all${doc.name}s: ReadonlyArray<${doc.name}>`)
+
       yield* fs.writeFileString(
-        path_.join(dir, "types.d.ts"),
-        `${types.join("\n\n")}
+        path_.join(tld, "generated.d.ts"),
+        `import { ${documents.map((doc) => doc.name).join(", ")} } from "./generated/types.d.js"
 
-declare module "@effect/contentlayer-generated" {
-  export { ${documents.map((doc) => doc.name).join(", ")} }
-  ${typeExports.join("\n")}
-}
+export * from "./generated/types.d.js"
 
-${documentModules.join("\n\n")}
+${collectionExports.join("\n\n")}
 `
       )
 
+      // generated.js
       const imports: Array<string> = []
       const exports: Array<string> = []
 
       for (const document of documents) {
-        imports.push(`import all${document.name}s from "./${document.name}/index.js"`)
+        imports.push(`import all${document.name}s from "./generated/${document.name}/index.js"`)
         exports.push(`all${document.name}s`)
       }
 
       yield* fs.writeFileString(
-        path_.join(dir, "index.js"),
+        path_.join(tld, "generated.js"),
         `${imports.join("\n")}
 
 export { ${exports.join(", ")} }`
