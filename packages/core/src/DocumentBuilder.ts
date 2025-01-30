@@ -6,13 +6,13 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Mailbox from "effect/Mailbox"
+import * as Option from "effect/Option"
 import type { ParseError } from "effect/ParseResult"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import { ConfigBuilder } from "./ConfigBuilder.js"
 import type * as Document from "./Document.js"
 import { DocumentStorage } from "./DocumentStorage.js"
-import { WatchMode } from "./References.js"
 import type * as Source from "./Source.js"
 
 /**
@@ -36,21 +36,6 @@ const make = Effect.gen(function*() {
         function*(config) {
           const ids = new Map<string, Set<string>>()
           const idMailbox = yield* Mailbox.make<void, any>()
-          const watchMode = yield* WatchMode
-
-          if (watchMode) {
-            yield* Stream.fromIterable(config.documents).pipe(
-              Stream.flatMap((doc) => doc.source.removals, { concurrency: "unbounded" }),
-              Stream.runForEach((id) =>
-                Effect.sync(() => {
-                  if (!ids.has(id)) return
-                  ids.delete(id)
-                  idMailbox.offer(undefined)
-                })
-              ),
-              Effect.fork
-            )
-          }
 
           yield* storage.writeIndex(config.documents).pipe(
             Effect.catchAllCause(Effect.logWarning),
@@ -74,9 +59,25 @@ const make = Effect.gen(function*() {
 
           yield* Stream.fromIterable(config.documents).pipe(
             Stream.bindTo("document"),
-            Stream.bind("output", ({ document }) => document.source.additions, {
-              concurrency: "unbounded"
-            }),
+            Stream.bind(
+              "output",
+              ({ document }) =>
+                (document.source.events as Stream.Stream<Source.Event<any, any>>).pipe(
+                  Stream.filterMap((event) => {
+                    if (event._tag === "Added") {
+                      return Option.some(event.output)
+                    }
+                    if (ids.has(event.id)) {
+                      ids.delete(event.id)
+                      idMailbox.unsafeOffer(undefined)
+                    }
+                    return Option.none()
+                  })
+                ),
+              {
+                concurrency: "unbounded"
+              }
+            ),
             Stream.bind("fields", ({ document, output }) =>
               Effect.flatMap(
                 Schema.decode(document.fields)(output.fields) as Effect.Effect<Record<string, unknown>, ParseError>,

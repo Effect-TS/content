@@ -8,12 +8,15 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import { dual } from "effect/Function"
+import * as Mailbox from "effect/Mailbox"
 import type { Pipeable } from "effect/Pipeable"
 import { pipeArguments } from "effect/Pipeable"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as Glob from "glob"
+import * as Minimatch from "minimatch"
 import { ContentlayerError } from "./ContentlayerError.js"
+import { WatchMode } from "./References.js"
 
 /**
  * @since 1.0.0
@@ -33,12 +36,11 @@ export type TypeId = typeof TypeId
  */
 export interface Source<in out Meta, in Context = never, out E = never> extends Pipeable {
   readonly [TypeId]: TypeId
-  readonly additions: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
-  readonly removals: Stream.Stream<string, never, Source.Provided>
+  readonly events: Stream.Stream<Event<Meta, Context>, E, Source.Provided>
   readonly metaSchema: Schema.Schema<Meta, any>
 }
 
-const SourceProto: Omit<Source<any, any, any>, "additions" | "metaSchema" | "removals"> = {
+const SourceProto: Omit<Source<any, any, any>, "events" | "metaSchema"> = {
   [TypeId]: TypeId,
   pipe() {
     return pipeArguments(this, arguments)
@@ -50,40 +52,46 @@ const SourceProto: Omit<Source<any, any, any>, "additions" | "metaSchema" | "rem
  * @category constructors
  */
 export const make = <Meta, Context, EA>(options: {
-  readonly additions: Stream.Stream<Output<Meta, Context>, EA, Source.Provided>
-  readonly removals?: Stream.Stream<string, never, Source.Provided>
+  readonly events: Stream.Stream<Event<Meta, Context>, EA, Source.Provided>
   readonly metaSchema: Schema.Schema<Meta, any>
 }): Source<Meta, Context, EA> => ({
   ...SourceProto,
-  ...options,
-  removals: options.removals ?? Stream.empty
+  ...options
 })
 
 /**
  * @since 1.0.0
  * @category combinators
  */
-export const transform: {
-  <Meta, Context, E, E2, Context2>(
+export const mapEffect: {
+  <Meta, Context, E2, Context2>(
     f: (
-      stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
-    ) => Stream.Stream<Output<Meta, Context2>, E2, Source.Provided>
-  ): (source: Source<Meta, Context, E>) => Source<Meta, Context2, E2>
+      output: Output<Meta, Context>
+    ) => Effect.Effect<Output<Meta, Context2>, E2, Source.Provided>
+  ): <E>(source: Source<Meta, Context, E>) => Source<Meta, Context2, E2>
   <Meta, Context, E, E2, Context2>(
     self: Source<Meta, Context, E>,
     f: (
-      stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
-    ) => Stream.Stream<Output<Meta, Context2>, E2, Source.Provided>
+      output: Output<Meta, Context>
+    ) => Effect.Effect<Output<Meta, Context2>, E2, Source.Provided>
   ): Source<Meta, Context2, E2>
 } = dual(2, <Meta, Context, E, E2, Context2>(
   self: Source<Meta, Context, E>,
   f: (
-    stream: Stream.Stream<Output<Meta, Context>, E, Source.Provided>
-  ) => Stream.Stream<Output<Meta, Context2>, E2, Source.Provided>
-): Source<Meta, Context2, E2> =>
+    output: Output<Meta, Context>
+  ) => Effect.Effect<Output<Meta, Context2>, E2, Source.Provided>
+): Source<Meta, Context2, E | E2> =>
   make({
-    additions: f(self.additions),
-    removals: self.removals,
+    events: self.events.pipe(
+      Stream.mapEffect((event) =>
+        event._tag === "Added" ?
+          Effect.map(f(event.output), (output): Event<Meta, Context2> => ({
+            _tag: "Added",
+            output
+          })) :
+          Effect.succeed(event)
+      )
+    ),
     metaSchema: self.metaSchema
   }))
 
@@ -204,6 +212,54 @@ export declare namespace Output {
 
 /**
  * @since 1.0.0
+ * @category events
+ */
+export type Event<Meta, Context> = Event.Added<Meta, Context> | Event.Removed
+
+/**
+ * @since 1.0.0
+ * @category events
+ */
+export const EventAdded = <Meta, Context>(output: Output<Meta, Context>): Event<Meta, Context> => ({
+  _tag: "Added",
+  output
+})
+
+/**
+ * @since 1.0.0
+ * @category events
+ */
+export const EventRemoved = (id: string): Event<never, never> => ({
+  _tag: "Removed",
+  id
+})
+
+/**
+ * @since 1.0.0
+ * @category events
+ */
+export declare namespace Event {
+  /**
+   * @since 1.0.0
+   * @category events
+   */
+  export interface Added<out Meta, in Context> {
+    readonly _tag: "Added"
+    readonly output: Output<Meta, Context>
+  }
+
+  /**
+   * @since 1.0.0
+   * @category events
+   */
+  export interface Removed {
+    readonly _tag: "Removed"
+    readonly id: string
+  }
+}
+
+/**
+ * @since 1.0.0
  * @category file system
  */
 export interface FileSystemMeta extends Path.Path.Parsed {
@@ -230,8 +286,8 @@ export const FileSystemMeta: Schema.Schema<FileSystemMeta> = Schema.Struct({
 export const fileSystem = (options: {
   readonly paths: ReadonlyArray<string>
 }): Source<FileSystemMeta, never, ContentlayerError> => {
-  const stream = Effect.gen(function*() {
-    // const watchMode = yield* WatchMode
+  const events = Effect.gen(function*() {
+    const watchMode = yield* WatchMode
     const fs = yield* FileSystem.FileSystem
     const path_ = yield* Path.Path
 
@@ -245,6 +301,15 @@ export const fileSystem = (options: {
           cause
         })
     })
+
+    const pathMatch = (path: string) => {
+      for (const p of options.paths) {
+        if (Minimatch.minimatch(path, p)) {
+          return true
+        }
+      }
+      return false
+    }
 
     const loadMeta = (path: string): Output<FileSystemMeta> =>
       new Output({
@@ -260,15 +325,47 @@ export const fileSystem = (options: {
         fields: {}
       })
 
-    return Stream.fromIterable(paths).pipe(
-      Stream.map(loadMeta)
-    )
-  }).pipe(Stream.unwrap)
+    const initialEvents = paths.map((path) => EventAdded(loadMeta(path)))
+
+    if (watchMode) {
+      const topLevelDirs = new Set<string>()
+      for (const path of paths) {
+        const dir = path_.dirname(path)
+        const match = Array.from(topLevelDirs).find((tld) => tld.startsWith(dir))
+        if (!match) {
+          topLevelDirs.add(dir)
+          break
+        } else if (match.length > dir.length) {
+          topLevelDirs.delete(match)
+          topLevelDirs.add(dir)
+        }
+      }
+      const mailbox = yield* Mailbox.make<Event<FileSystemMeta, never>>()
+      yield* mailbox.offerAll(initialEvents)
+
+      for (const dir of topLevelDirs) {
+        yield* fs.watch(dir).pipe(
+          Stream.filter((event) => {
+            console.log("watch event", event)
+            return pathMatch(event.path)
+          }),
+          Stream.runForEach((event) =>
+            mailbox.offer(
+              event._tag === "Remove" ? EventRemoved(event.path) : EventAdded(loadMeta(event.path))
+            )
+          ),
+          Effect.forkScoped
+        )
+      }
+
+      return Mailbox.toStream(mailbox)
+    }
+
+    return Stream.fromIterable(initialEvents)
+  }).pipe(Stream.unwrapScoped)
 
   return make({
-    additions: stream,
-    // TODO: setup watchers
-    removals: Stream.empty,
+    events,
     metaSchema: FileSystemMeta
   })
 }

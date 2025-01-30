@@ -3,7 +3,6 @@
  */
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
-import * as Stream from "effect/Stream"
 import rehypeFormat from "rehype-format"
 import rehypeStringify from "rehype-stringify"
 import remarkFrontmatter from "remark-frontmatter"
@@ -50,37 +49,37 @@ export const unified = <
 }) =>
 <Meta, In, E>(
   source: Source.Source<Meta, In, E>
-): Source.Source<Meta, In | UnifiedOutput, E | EX | ContentlayerError> =>
-  Source.transform(
+): Source.Source<Meta, In | UnifiedOutput, E | EX | ContentlayerError> => {
+  const processor = (Effect.isEffect(options.processor) ? options.processor : Effect.succeed(options.processor)).pipe(
+    Effect.cached,
+    Effect.runSync
+  )
+  return Source.mapEffect(
     source,
-    (source) =>
-      (Effect.isEffect(options.processor) ? options.processor : Effect.succeed(options.processor)).pipe(
-        Effect.map((processor) =>
-          source.pipe(
-            Stream.mapEffect((output) =>
-              output.content.pipe(
-                Effect.tryMapPromise({
-                  try: (content) => processor.process(content),
-                  catch: (cause) =>
-                    new ContentlayerError({
-                      module: "SourcePlugin",
-                      method: "unified",
-                      description: "Error processing content",
-                      cause
-                    })
-                }),
-                Effect.map((vfile) =>
-                  output
-                    .addContext(UnifiedOutput, vfile)
-                    .addFields(options.extractFields(vfile))
-                )
-              )
+    (output) =>
+      processor.pipe(
+        Effect.flatMap((processor) =>
+          output.content.pipe(
+            Effect.tryMapPromise({
+              try: (content) => processor.process(content),
+              catch: (cause) =>
+                new ContentlayerError({
+                  module: "SourcePlugin",
+                  method: "unified",
+                  description: "Error processing content",
+                  cause
+                })
+            }),
+            Effect.map((vfile) =>
+              output
+                .addContext(UnifiedOutput, vfile)
+                .addFields(options.extractFields(vfile))
             )
           )
-        ),
-        Stream.unwrap
+        )
       )
   )
+}
 
 const removeYaml: Unified.Plugin = () => (tree) => {
   Remove.remove(tree, "yaml")

@@ -2,6 +2,7 @@ import * as Command from "@effect/cli/Command"
 import * as Options from "@effect/cli/Options"
 import { DocumentBuilder } from "@effect/contentlayer-core/DocumentBuilder"
 import { BuildOptions } from "@effect/contentlayer-core/Esbuild"
+import { WatchMode } from "@effect/contentlayer-core/References"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -21,7 +22,7 @@ const watchMode = Options.boolean("watch", { aliases: ["w"] }).pipe(
     "Enable watch mode which will watch the file system for changes " +
       "and rebuild when your configuration changes"
   ),
-  Options.withFallbackConfig(Config.string("watchMode"))
+  Options.withFallbackConfig(Config.boolean("watchMode"))
 )
 
 const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
@@ -30,18 +31,21 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
       Effect.zipRight(Effect.never)
     )
   ),
-  Command.provide(({ configPath }) =>
+  Command.provide(({ configPath, watchMode }) =>
     DocumentBuilder.Live.pipe(
-      Layer.provide(BuildOptions.Live({
-        bundle: false,
-        entryNames: "[name]-[hash]",
-        entryPoints: [configPath],
-        format: "cjs",
-        logLevel: "silent",
-        metafile: true,
-        outfile: ".contentlayer/compiled-contentlayer-config",
-        platform: "node"
-      }))
+      Layer.provide([
+        BuildOptions.Live({
+          bundle: false,
+          entryNames: "[name]-[hash]",
+          entryPoints: [configPath],
+          format: "cjs",
+          logLevel: "silent",
+          metafile: true,
+          outfile: ".contentlayer/compiled-contentlayer-config",
+          platform: "node"
+        }),
+        Layer.succeed(WatchMode, watchMode)
+      ])
     )
   )
 )
