@@ -61,6 +61,29 @@ export const make = <Meta, Context, EA>(options: {
 
 /**
  * @since 1.0.0
+ * @category Plugins
+ */
+export const makePlugin = <E2, Meta, Context, Context2>(
+  f: (stream: Stream.Stream<Output<Meta, Context>>) => Stream.Stream<Output<Meta, Context2>, E2, Source.Provided>
+) =>
+<E>(self: Source<Meta, Context, E>): Source<Meta, Context2, E | E2> =>
+  Effect.gen(function*() {
+    const mailbox = yield* Mailbox.make<Output<Meta, Context>>()
+
+    yield* self.events.pipe(
+      Stream.flatMap((event) => {
+        if (event._tag === "Removed") {
+          return Stream.succeed(event)
+        }
+        mailbox.offer(event.output)
+        return Stream.empty
+      }),
+      Stream.runDrain
+    )
+  })
+
+/**
+ * @since 1.0.0
  * @category combinators
  */
 export const mapEffect: {
