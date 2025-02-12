@@ -33,7 +33,7 @@
     "@effect/build-utils": "^0.7.9",
     "@effect/docgen": "^0.5.2",
     "@effect/dtslint": "^0.1.2",
-    "@effect/eslint-plugin": "^0.3.0",
+    "@effect/eslint-plugin": "^0.2.0",
     "@effect/experimental": "^0.40.0",
     "@effect/language-service": "^0.2.0",
     "@effect/platform": "^0.76.0",
