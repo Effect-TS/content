@@ -1,9 +1,12 @@
 /**
  * @since 1.0.0
  */
+import * as Arr from "effect/Array"
 import * as Context from "effect/Context"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
+import * as Equivalence from "effect/Equivalence"
+import * as Iterable from "effect/Iterable"
 import * as Layer from "effect/Layer"
 import * as Mailbox from "effect/Mailbox"
 import * as Option from "effect/Option"
@@ -13,6 +16,7 @@ import * as Stream from "effect/Stream"
 import { ConfigBuilder } from "./ConfigBuilder.js"
 import type * as Document from "./Document.js"
 import { DocumentStorage } from "./DocumentStorage.js"
+import { WatchMode } from "./References.js"
 import type * as Source from "./Source.js"
 
 /**
@@ -28,14 +32,24 @@ export interface BuiltDocument {
 const make = Effect.gen(function*() {
   const config = yield* ConfigBuilder
   const storage = yield* DocumentStorage
+  const watchMode = yield* WatchMode
 
   const documents = config.config.pipe(
     Stream.tap(() => Effect.log("Building documents")),
     Stream.flatMap(
       Effect.fnUntraced(
         function*(config) {
-          const ids = new Map<string, Set<string>>()
+          const idMap = new Map<string, Set<string>>()
+          const idMapPrevious = new Map<string, Array<string>>()
           const idMailbox = yield* Mailbox.make<void, any>()
+          const idEquiv = Arr.getEquivalence(Equivalence.string)
+          let builtDocumentCount = 0
+
+          const getIdCount = () => {
+            const count = builtDocumentCount
+            builtDocumentCount = 0
+            return count
+          }
 
           yield* storage.writeIndex(config.documents).pipe(
             Effect.catchAllCause(Effect.logWarning),
@@ -46,62 +60,93 @@ const make = Effect.gen(function*() {
 
           yield* Mailbox.toStream(idMailbox).pipe(
             Stream.debounce(500),
-            Stream.runForEach(() =>
-              Effect.forEach(ids, ([documentName, newIds]) => storage.writeIds(documentName, newIds), {
-                concurrency: "unbounded"
-              })
+            Stream.tap(() => Effect.logInfo(`${getIdCount()} documents built`)),
+            Stream.flatMap(() =>
+              Stream.fromIterable(
+                Iterable.map(idMap, ([documentName, ids]) => [documentName, Array.from(ids)] as const)
+              )
             ),
+            Stream.filter(([name, ids]) => {
+              const previous = idMapPrevious.get(name)
+              idMapPrevious.set(name, ids)
+              return previous ? !idEquiv(ids, previous) : true
+            }),
+            Stream.mapEffect(([documentName, newIds]) => storage.writeIds(documentName, newIds), {
+              concurrency: "unbounded"
+            }),
+            Stream.runDrain,
             Effect.catchAllCause(Effect.logWarning),
-            Effect.annotateLogs({ fiber: "writeIds" }),
             Effect.uninterruptible,
             Effect.fork
           )
 
-          yield* Stream.fromIterable(config.documents).pipe(
+          return yield* Stream.fromIterable(config.documents).pipe(
             Stream.bindTo("document"),
             Stream.bind(
               "output",
               ({ document }) =>
                 (document.source.events as Stream.Stream<Source.Event<any, any>>).pipe(
+                  Stream.tap((event) => {
+                    if (event._tag === "Added" && event.initial) {
+                      return Effect.void
+                    }
+                    return Effect.annotateLogs(Effect.logInfo(`Document ${event._tag.toLowerCase()}`), {
+                      document: document.name,
+                      id: event.id
+                    })
+                  }),
                   Stream.filterMap((event) => {
                     if (event._tag === "Added") {
                       return Option.some(event.output)
                     }
-                    if (ids.has(event.id)) {
-                      ids.delete(event.id)
+                    const documentIds = idMap.get(document.name)
+                    if (documentIds && documentIds.has(event.id)) {
+                      documentIds.delete(event.id)
                       idMailbox.unsafeOffer(undefined)
                     }
                     return Option.none()
                   })
                 ),
-              {
-                concurrency: "unbounded"
-              }
+              { concurrency: "unbounded" }
             ),
-            Stream.bind("fields", ({ document, output }) =>
-              Effect.flatMap(
-                Schema.decode(document.fields)(output.fields) as Effect.Effect<Record<string, unknown>, ParseError>,
-                (fields) => resolveComputedFields({ document, output, fields })
-              ), { concurrency: "unbounded" }),
-            Stream.mapEffect((out) => Effect.as(storage.write(out), out), { concurrency: "unbounded" }),
-            Stream.runForEach(({ document, output }) =>
-              Effect.sync(() => {
-                let documentIds = ids.get(document.name)
-                if (!documentIds) {
-                  documentIds = new Set()
-                  ids.set(document.name, documentIds)
-                }
-                if (documentIds.has(output.id)) return
-                documentIds.add(output.id)
-                idMailbox.unsafeOffer(undefined)
-              })
+            Stream.mapEffect(
+              Effect.fnUntraced(
+                function*({ document, output }) {
+                  const decoded = yield* (Schema.decode(document.fields)(output.fields) as Effect.Effect<
+                    Record<string, unknown>,
+                    ParseError
+                  >)
+                  const fields = yield* resolveComputedFields({ document, output, fields: decoded })
+                  yield* storage.write({ document, fields, output })
+                  builtDocumentCount++
+
+                  let documentIds = idMap.get(document.name)
+                  if (!documentIds) {
+                    documentIds = new Set()
+                    idMap.set(document.name, documentIds)
+                  }
+                  if (!documentIds.has(output.id)) {
+                    documentIds.add(output.id)
+                    yield* idMailbox.offer(undefined)
+                  }
+                },
+                Effect.catchAllCause((cause) => {
+                  if (!watchMode) return Effect.failCause(cause)
+                  // TODO: better errors and annotations
+                  return Effect.logWarning("Error building document", cause)
+                })
+              ),
+              { concurrency: "unbounded" }
             ),
-            Effect.onExit((exit) => idMailbox.done(exit))
+            Stream.runDrain,
+            Effect.onExit((exit) => idMailbox.done(exit)),
+            Effect.map(getIdCount)
           )
         },
         Effect.timed,
         Effect.matchCauseEffect({
-          onSuccess: ([duration]) => Effect.log(`Documents built successfully in ${Duration.format(duration)}`),
+          onSuccess: ([duration, count]) =>
+            Effect.log(`${count} documents built successfully in ${Duration.format(duration)}`),
           onFailure: (cause) => Effect.logError("Error building documents", cause)
         })
       ),

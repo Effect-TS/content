@@ -118,7 +118,7 @@ export { ${exports.join(", ")} }`
 
     const currentIdHashes = new Map<string, Set<string>>()
 
-    const writeIds = Effect.fnUntraced(function*(documentName: string, newIds: Set<string>) {
+    const writeIds = Effect.fnUntraced(function*(documentName: string, newIds: Iterable<string>) {
       let idHashes = currentIdHashes.get(documentName)
       if (!idHashes) {
         const files = yield* Effect.orDie(fs.readDirectory(path_.join(outputDir, documentName)))

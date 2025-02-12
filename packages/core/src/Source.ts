@@ -85,10 +85,7 @@ export const mapEffect: {
     events: self.events.pipe(
       Stream.mapEffect((event) =>
         event._tag === "Added" ?
-          Effect.map(f(event.output), (output): Event<Meta, Context2> => ({
-            _tag: "Added",
-            output
-          })) :
+          Effect.map(f(event.output), (output): Event<Meta, Context2> => EventAdded(output, event.initial)) :
           Effect.succeed(event)
       )
     ),
@@ -220,8 +217,10 @@ export type Event<Meta, Context> = Event.Added<Meta, Context> | Event.Removed
  * @since 1.0.0
  * @category events
  */
-export const EventAdded = <Meta, Context>(output: Output<Meta, Context>): Event<Meta, Context> => ({
+export const EventAdded = <Meta, Context>(output: Output<Meta, Context>, initial: boolean): Event<Meta, Context> => ({
   _tag: "Added",
+  id: output.id,
+  initial,
   output
 })
 
@@ -245,6 +244,8 @@ export declare namespace Event {
    */
   export interface Added<out Meta, in Context> {
     readonly _tag: "Added"
+    readonly initial: boolean
+    readonly id: string
     readonly output: Output<Meta, Context>
   }
 
@@ -290,6 +291,7 @@ export const fileSystem = (options: {
     const watchMode = yield* WatchMode
     const fs = yield* FileSystem.FileSystem
     const path_ = yield* Path.Path
+    const cwd = path_.resolve()
 
     const paths = yield* Effect.tryPromise({
       try: () => Glob.glob(options.paths as Array<string>),
@@ -325,7 +327,7 @@ export const fileSystem = (options: {
         fields: {}
       })
 
-    const initialEvents = paths.map((path) => EventAdded(loadMeta(path)))
+    const initialEvents = paths.map((path) => EventAdded(loadMeta(path), true))
 
     if (watchMode) {
       const topLevelDirs = new Set<string>()
@@ -345,13 +347,14 @@ export const fileSystem = (options: {
 
       for (const dir of topLevelDirs) {
         yield* fs.watch(dir).pipe(
-          Stream.filter((event) => {
-            console.log("watch event", event)
-            return pathMatch(event.path)
-          }),
+          Stream.map((event) => ({
+            ...event,
+            path: path_.relative(cwd, event.path)
+          })),
+          Stream.filter((event) => pathMatch(event.path)),
           Stream.runForEach((event) =>
             mailbox.offer(
-              event._tag === "Remove" ? EventRemoved(event.path) : EventAdded(loadMeta(event.path))
+              event._tag === "Remove" ? EventRemoved(event.path) : EventAdded(loadMeta(event.path), false)
             )
           ),
           Effect.forkScoped
