@@ -1,6 +1,11 @@
 /**
  * @since 1.0.0
  */
+import * as Data from "effect/Data"
+import * as Effect from "effect/Effect"
+import type { ParseError } from "effect/ParseResult"
+import * as ParseResult from "effect/ParseResult"
+import { hasProperty, isTagged } from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
 /**
@@ -36,5 +41,51 @@ export class ContentlayerError
    */
   get message() {
     return `${this.module}.${this.method}: ${this.description}`
+  }
+}
+
+/**
+ * @since 1.0.0
+ * @category models
+ */
+export class BuildError extends Data.TaggedError("BuildError")<{
+  parseError: ParseError
+  documentType: string
+  documentId: string
+}> {
+  /**
+   * @since 1.0.0
+   */
+  readonly [TypeId]: TypeId = TypeId
+
+  /**
+   * @since 1.0.0
+   */
+  get message() {
+    return ParseResult.TreeFormatter.formatErrorSync(this.parseError)
+  }
+
+  /**
+   * @since 1.0.0
+   */
+  static is(value: unknown): value is BuildError {
+    return hasProperty(value, TypeId) && isTagged(value, "BuildError")
+  }
+
+  /**
+   * @since 1.0.0
+   */
+  static catchAndLog = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A | void, Exclude<E, BuildError>, R> =>
+    Effect.catchIf(
+      effect,
+      BuildError.is,
+      (error) => Effect.annotateLogs(Effect.logError("Error building document", error.message), error.annotations)
+    ) as any
+
+  /**
+   * @since 1.0.0
+   */
+  get annotations() {
+    return { documentType: this.documentType, documentId: this.documentId }
   }
 }

@@ -1,6 +1,8 @@
 import * as Command from "@effect/cli/Command"
 import * as Options from "@effect/cli/Options"
-import { DocumentBuilder } from "@effect/contentlayer-core/DocumentBuilder"
+import * as ConfigBuilder from "@effect/contentlayer-core/ConfigBuilder"
+import * as DocumentBuilder from "@effect/contentlayer-core/DocumentBuilder"
+import * as DocumentStorage from "@effect/contentlayer-core/DocumentStorage"
 import { BuildOptions } from "@effect/contentlayer-core/Esbuild"
 import { WatchMode } from "@effect/contentlayer-core/References"
 import * as Config from "effect/Config"
@@ -28,12 +30,16 @@ const watchMode = Options.boolean("watch", { aliases: ["w"] }).pipe(
 const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
   Command.withHandler(() =>
     Effect.log("Starting Contentlayer...").pipe(
-      Effect.zipRight(Effect.never)
+      Effect.zipRight(DocumentBuilder.run)
     )
   ),
   Command.provide(({ configPath, watchMode }) =>
-    DocumentBuilder.Live.pipe(
-      Layer.provide([
+    Layer.provideMerge(
+      Layer.mergeAll(
+        ConfigBuilder.ConfigBuilder.Live,
+        DocumentStorage.DocumentStorage.Default
+      ),
+      Layer.mergeAll(
         BuildOptions.Live({
           bundle: false,
           entryNames: "[name]-[hash]",
@@ -45,7 +51,7 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
           platform: "node"
         }),
         Layer.succeed(WatchMode, watchMode)
-      ])
+      )
     )
   )
 )

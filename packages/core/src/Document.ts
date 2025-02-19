@@ -65,7 +65,22 @@ export declare namespace Document {
     readonly _Fields: Invariant<Fields>
   }
 
-  export type Any = Document<any, Source.Source.Any>
+  export interface Any {
+    readonly [TypeId]: any
+    readonly name: string
+  }
+
+  export interface AnyWithProps {
+    readonly [TypeId]: any
+    readonly name: string
+    readonly fields: Schema.Schema.Any
+    readonly source: Source.Source.Any
+    readonly computedFields: ReadonlyArray<ReadonlyArray<AnyComputedField & { readonly name: string }>>
+  }
+
+  export type Source<Doc extends Any> = Doc extends Document<infer _Fields, infer _Source> ? _Source : never
+
+  export type Fields<Doc extends Any> = Doc extends Document<infer _Fields, infer _Source> ? _Fields : never
 
   export type ExcludeDuplicates<
     ComputedFieldSchemas extends Record<string, Schema.Schema.Any>,
@@ -102,8 +117,8 @@ export declare namespace Document {
   }
 
   export interface Output<Document extends Any> {
-    readonly meta: Source.Source.Meta<Document["source"]>
-    readonly fields: Schema.Schema.Type<Document["fields"]>
+    readonly meta: Source.Source.Meta<Document.Source<Document>>
+    readonly fields: Schema.Schema.Type<Document.Fields<Document>>
   }
 }
 

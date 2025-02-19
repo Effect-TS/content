@@ -84,7 +84,7 @@ export class DocumentStorage extends Effect.Service<DocumentStorage>()("@effect/
       yield* fs.writeFileString(path_.join(tld, "package.json"), JSON.stringify(packageJson, null, 2))
 
       // types.d.ts
-      const types = documents.map((doc) => TypeBuilder.renderDocument(doc))
+      const types = documents.map((doc) => TypeBuilder.renderDocument(doc as any))
       yield* fs.writeFileString(path_.join(dir, "types.d.ts"), types.join("\n\n"))
 
       // generated.d.ts

@@ -2,18 +2,20 @@
  * @since 1.0.0
  */
 import * as Arr from "effect/Array"
-import * as Context from "effect/Context"
+import * as Cause from "effect/Cause"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
+import * as Either from "effect/Either"
 import * as Equivalence from "effect/Equivalence"
+import { identity } from "effect/Function"
 import * as Iterable from "effect/Iterable"
-import * as Layer from "effect/Layer"
 import * as Mailbox from "effect/Mailbox"
 import * as Option from "effect/Option"
 import type { ParseError } from "effect/ParseResult"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import { ConfigBuilder } from "./ConfigBuilder.js"
+import { BuildError } from "./ContentlayerError.js"
 import type * as Document from "./Document.js"
 import { DocumentStorage } from "./DocumentStorage.js"
 import { WatchMode } from "./References.js"
@@ -24,17 +26,21 @@ import type * as Source from "./Source.js"
  * @category models
  */
 export interface BuiltDocument {
-  readonly document: Document.Document.Any
+  readonly document: Document.Document.AnyWithProps
   readonly fields: Record<string, unknown>
   readonly output: Source.Output<unknown>
 }
 
-const make = Effect.gen(function*() {
+/**
+ * @since 1.0.0
+ * @category run
+ */
+export const run = Effect.gen(function*() {
   const config = yield* ConfigBuilder
   const storage = yield* DocumentStorage
   const watchMode = yield* WatchMode
 
-  const documents = config.config.pipe(
+  return yield* config.config.pipe(
     Stream.tap(() => Effect.log("Building documents")),
     Stream.flatMap(
       Effect.fnUntraced(
@@ -75,8 +81,8 @@ const make = Effect.gen(function*() {
               concurrency: "unbounded"
             }),
             Stream.runDrain,
-            Effect.catchAllCause(Effect.logWarning),
             Effect.uninterruptible,
+            Effect.catchAllCause(Effect.logWarning),
             Effect.fork
           )
 
@@ -115,7 +121,15 @@ const make = Effect.gen(function*() {
                   const decoded = yield* (Schema.decode(document.fields)(output.fields) as Effect.Effect<
                     Record<string, unknown>,
                     ParseError
-                  >)
+                  >).pipe(
+                    Effect.mapError((parseError) =>
+                      new BuildError({
+                        parseError,
+                        documentType: document.name,
+                        documentId: output.id
+                      })
+                    )
+                  )
                   const fields = yield* resolveComputedFields({ document, output, fields: decoded })
                   yield* storage.write({ document, fields, output })
                   builtDocumentCount++
@@ -133,8 +147,19 @@ const make = Effect.gen(function*() {
                 Effect.catchAllCause((cause) => {
                   if (!watchMode) return Effect.failCause(cause)
                   // TODO: better errors and annotations
-                  return Effect.logWarning("Error building document", cause)
-                })
+                  return Effect.logWarning(
+                    "Error building document",
+                    Either.match(Cause.failureOrCause(cause), {
+                      onLeft: (error) => error.message,
+                      onRight: identity
+                    })
+                  )
+                }),
+                (effect, { document, output }) =>
+                  Effect.annotateLogs(effect, {
+                    documentType: document.name,
+                    documentId: output.id
+                  })
               ),
               { concurrency: "unbounded" }
             ),
@@ -144,39 +169,20 @@ const make = Effect.gen(function*() {
           )
         },
         Effect.timed,
-        Effect.matchCauseEffect({
-          onSuccess: ([duration, count]) =>
-            Effect.log(`${count} documents built successfully in ${Duration.format(duration)}`),
-          onFailure: (cause) => Effect.logError("Error building documents", cause)
-        })
+        Effect.flatMap(([duration, count]) =>
+          Effect.log(`${count} documents built successfully in ${Duration.format(duration)}`)
+        )
       ),
       { switch: true }
     ),
     Stream.runDrain,
-    Effect.forkScoped
+    BuildError.catchAndLog,
+    Effect.catchAllCause(Effect.logError)
   )
-
-  yield* documents
-}).pipe(
-  Effect.annotateLogs({
-    module: "DocumentBuilder"
-  })
-)
-
-export class DocumentBuilder extends Context.Tag("@effect/contentlayer-core/DocumentBuilder")<
-  DocumentBuilder,
-  Effect.Effect.Success<typeof make>
->() {
-  static readonly layer = Layer.scoped(DocumentBuilder, make)
-
-  static readonly Live = this.layer.pipe(
-    Layer.provide(ConfigBuilder.Live),
-    Layer.provide(DocumentStorage.Default)
-  )
-}
+})
 
 const resolveComputedFields = (options: {
-  readonly document: Document.Document<any, any>
+  readonly document: Document.Document.AnyWithProps
   readonly output: Source.Output<unknown>
   readonly fields: Record<string, unknown>
 }): Effect.Effect<Record<string, unknown>, ParseError> =>

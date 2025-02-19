@@ -9,7 +9,7 @@ export const TypeId = Symbol.for("@effect/contentlayer/Config")
 export type TypeId = typeof TypeId
 
 export interface Config extends Config.Proto {
-  readonly documents: ReadonlyArray<Document.Any>
+  readonly documents: ReadonlyArray<Document.AnyWithProps>
 }
 
 export declare namespace Config {
