@@ -1,1 +1,7 @@
 - error messages
+  - non-contentlayer errors
+- offload building to workers
+- caching
+  - invalidate when config changes
+  - hash of the source content
+  - cms?
