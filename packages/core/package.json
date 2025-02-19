@@ -21,7 +21,7 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "effect": "^3.12.11",
+    "effect": "^3.13.2",
     "esbuild": "^0.25.0",
     "glob": "^11.0.1",
     "minimatch": "^10.0.1",

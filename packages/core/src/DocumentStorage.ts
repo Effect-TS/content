@@ -5,6 +5,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import * as NodePath from "@effect/platform-node/NodePath"
 import { FileSystem } from "@effect/platform/FileSystem"
 import { Path } from "@effect/platform/Path"
+import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 import { globalValue } from "effect/GlobalValue"
 import type { ParseError } from "effect/ParseResult"
@@ -116,35 +117,35 @@ export { ${exports.join(", ")} }`
       )
     })
 
-    const currentIdHashes = new Map<string, Set<string>>()
+    const currentIdHashes = new Map<string, Array<string>>()
 
     const writeIds = Effect.fnUntraced(function*(documentName: string, newIds: Iterable<string>) {
       let idHashes = currentIdHashes.get(documentName)
       if (!idHashes) {
         const files = yield* Effect.orDie(fs.readDirectory(path_.join(outputDir, documentName)))
-        idHashes = new Set(files.map((file) => path_.basename(file, ".json")))
+        idHashes = files
+          .filter((file) => file.endsWith(".json"))
+          .map((file) => path_.basename(file, ".json"))
         currentIdHashes.set(documentName, idHashes)
       }
 
       // generate index
-      const imports: Array<string> = []
-      const exports: Array<string> = []
-      const newIdHashes: Array<string> = []
-      const toRemove: Array<string> = []
+      const newIdsArr = Arr.empty<string>()
+      const imports = Arr.empty<string>()
+      const exports = Arr.empty<string>()
+      const toRemove = new Set<string>(idHashes)
       let i = 1
       for (const id of newIds) {
         const index = i++
         const idHash = yield* sha256String(id)
-        newIdHashes.push(idHash)
+        newIdsArr.push(idHash)
         imports.push(`import document${index} from "./${idHash}.json" assert { type: "json" }`)
         exports.push(`document${index}`)
-        if (!idHashes.has(idHash)) {
-          toRemove.push(idHash)
-        }
+        toRemove.delete(idHash)
       }
 
       // update currentIds
-      currentIdHashes.set(documentName, idHashes)
+      currentIdHashes.set(documentName, newIdsArr)
 
       const output = `${imports.join("\n")}
 
