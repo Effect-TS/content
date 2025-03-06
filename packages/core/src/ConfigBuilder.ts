@@ -18,50 +18,9 @@ import { ContentlayerError } from "./ContentlayerError.js"
 import type { EsbuildSuccess } from "./Esbuild.js"
 import { Esbuild } from "./Esbuild.js"
 
-// contentlayer.config.ts
-//
-// const Author = Schema.Struct({
-//   name: Schema.NonEmptyString,
-//   twitter: Schema.optional(Schema.String)
-// })
-//
-// const Post = make({
-//   name: "Post",
-//   description: "The posts",
-//   source: Source.fileSystem({ path: "content/posts/**/*.mdx?" }),
-//   fields: {
-//     title: Schema.NonEmptyString,
-//     author: Author
-//   }
-// }).addComputedFields({
-//   slug: {
-//     description: "The title slug",
-//     schema: Schema.NonEmptyString,
-//     resolve: (fields) => Effect.succeed(fields.title.slice(0, 5))
-//   },
-//   slug2: {
-//     description: "The title slug",
-//     schema: Schema.NonEmptyString,
-//     resolve: (fields) => Effect.succeed(fields.title.slice(0, 5))
-//   }
-// }).addComputedFields({
-//   slug3: {
-//     description: "The title slug",
-//     schema: Schema.Number,
-//     resolve: () => Effect.succeed(1)
-//   }
-// })
-//
-// export default Config.make({
-//   documents: [Post]
-// })
-//
-//
-// compiled-contentlayer-config-[HASH].mjs
-
 export const make = Effect.gen(function*() {
   const esbuild = yield* Esbuild
-  const config = yield* SubscriptionRef.make(Option.none<Config.Config>())
+  const config = yield* SubscriptionRef.make(Option.none<BuiltConfig>())
 
   yield* esbuild.results.take.pipe(
     Effect.flatten,
@@ -80,6 +39,16 @@ export const make = Effect.gen(function*() {
   } as const
 })
 
+/**
+ * @since 1.0.0
+ * @category models
+ */
+export interface BuiltConfig {
+  readonly config: Config.Config
+  readonly path: string
+  readonly entrypoint: string
+}
+
 export class ConfigBuilder extends Effect.Tag("@effect/contentlayer-core/ConfigBuilder")<
   ConfigBuilder,
   Effect.Effect.Success<typeof make>
@@ -97,12 +66,11 @@ const configAsOption = Option.liftPredicate(Config.isConfig)
 const build = (
   result: EsbuildSuccess
 ): Effect.Effect<
-  Option.Option<Config.Config>,
+  Option.Option<BuiltConfig>,
   ContentlayerError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function*() {
-    const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
 
     const [outfilePath, output] = yield* Option.fromNullable(result.metafile).pipe(
@@ -114,26 +82,40 @@ const build = (
     //   Option.flatMap(Array.get(1)),
     //   Effect.orDie
     // )
-
-    const content = yield* Effect.orDie(fs.readFileString(outfilePath))
-
-    const context = VM.createContext({
-      ...globalThis
-    })
-    context.require = Module.createRequire(path.resolve(output.entryPoint!))
-    context.module = { exports: {} }
-    context.exports = context.module.exports
-
-    yield* Effect.try({
-      try: () => VM.runInContext(content, context),
-      catch: (cause) =>
-        new ContentlayerError({
-          module: "ConfigBuilder",
-          method: "build",
-          description: "Error evaluating config",
-          cause
-        })
-    })
-
-    return configAsOption(context.module.exports.default)
+    return yield* fromPath(outfilePath, path.resolve(output.entryPoint!))
   })
+
+/**
+ * @since 1.0.0
+ * @category constructors
+ */
+export const fromPath = Effect.fnUntraced(function*(
+  outPath: string,
+  entrypoint: string
+) {
+  const fs = yield* FileSystem.FileSystem
+
+  const content = yield* Effect.orDie(fs.readFileString(outPath))
+
+  const context = VM.createContext({
+    ...globalThis
+  })
+  context.require = Module.createRequire(entrypoint)
+  context.module = { exports: {} }
+  context.exports = context.module.exports
+
+  yield* Effect.try({
+    try: () => VM.runInContext(content, context),
+    catch: (cause) =>
+      new ContentlayerError({
+        module: "ConfigBuilder",
+        method: "fromPath",
+        description: "Error evaluating config",
+        cause
+      })
+  })
+
+  return configAsOption(context.module.exports.default).pipe(
+    Option.map((config): BuiltConfig => ({ config, path: outPath, entrypoint }))
+  )
+})

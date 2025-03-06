@@ -21,7 +21,11 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "effect": "^3.13.2",
+    "@effect/platform": "https://pkg.pr.new/Effect-TS/effect/@effect/platform@8590cee",
+    "@effect/platform-node": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node@8590cee",
+    "@effect/platform-node-shared": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node-shared@8590cee",
+    "@effect/rpc": "https://pkg.pr.new/Effect-TS/effect/@effect/rpc@8590cee",
+    "effect": "https://pkg.pr.new/Effect-TS/effect@8590cee",
     "esbuild": "^0.25.0",
     "glob": "^11.0.1",
     "minimatch": "^10.0.1",

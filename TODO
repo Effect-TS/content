@@ -1,6 +1,10 @@
 - error messages
   - non-contentlayer errors
-- offload building to workers
+- fix workers
+- replace single element stream in workers
+- worker configuration
+  - on / off
+  - pool size
 - caching
   - invalidate when config changes
   - hash of the source content

@@ -1,7 +1,6 @@
 /**
  * @since 1.0.0
  */
-import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import type { ParseError } from "effect/ParseResult"
 import * as ParseResult from "effect/ParseResult"
@@ -48,11 +47,11 @@ export class ContentlayerError
  * @since 1.0.0
  * @category models
  */
-export class BuildError extends Data.TaggedError("BuildError")<{
-  parseError: ParseError
-  documentType: string
-  documentId: string
-}> {
+export class BuildError extends Schema.TaggedError<BuildError>()("BuildError", {
+  parseError: Schema.String,
+  documentType: Schema.String,
+  documentId: Schema.String
+}) {
   /**
    * @since 1.0.0
    */
@@ -61,8 +60,22 @@ export class BuildError extends Data.TaggedError("BuildError")<{
   /**
    * @since 1.0.0
    */
+  static fromParseError(options: {
+    readonly parseError: ParseError
+    readonly documentType: string
+    readonly documentId: string
+  }) {
+    return new BuildError({
+      ...options,
+      parseError: ParseResult.TreeFormatter.formatErrorSync(options.parseError)
+    })
+  }
+
+  /**
+   * @since 1.0.0
+   */
   get message() {
-    return ParseResult.TreeFormatter.formatErrorSync(this.parseError)
+    return this.parseError
   }
 
   /**

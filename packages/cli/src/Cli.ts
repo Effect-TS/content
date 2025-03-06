@@ -37,7 +37,8 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         ConfigBuilder.ConfigBuilder.Live,
-        DocumentStorage.DocumentStorage.Default
+        DocumentStorage.DocumentStorage.Default,
+        DocumentBuilder.ContentWorkerPool.Default
       ),
       Layer.mergeAll(
         BuildOptions.Live({

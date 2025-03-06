@@ -66,6 +66,13 @@
     "vitest": "^3.0.7"
   },
   "pnpm": {
+    "overrides": {
+      "effect": "https://pkg.pr.new/Effect-TS/effect@8590cee",
+      "@effect/platform": "https://pkg.pr.new/Effect-TS/effect/@effect/platform@8590cee",
+      "@effect/platform-node": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node@8590cee",
+      "@effect/platform-node-shared": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node-shared@8590cee",
+      "@effect/rpc": "https://pkg.pr.new/Effect-TS/effect/@effect/rpc@8590cee"
+    },
     "updateConfig": {
       "ignoreDependencies": [
         "eslint"

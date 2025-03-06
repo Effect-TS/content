@@ -1,6 +1,8 @@
 /**
  * @since 1.0.0
  */
+import * as NodeWorker from "@effect/platform-node/NodeWorker"
+import * as RpcClient from "@effect/rpc/RpcClient"
 import * as Arr from "effect/Array"
 import * as Cause from "effect/Cause"
 import * as Duration from "effect/Duration"
@@ -9,13 +11,15 @@ import * as Either from "effect/Either"
 import * as Equivalence from "effect/Equivalence"
 import { identity } from "effect/Function"
 import * as Iterable from "effect/Iterable"
+import * as Layer from "effect/Layer"
 import * as Mailbox from "effect/Mailbox"
 import * as Option from "effect/Option"
-import type { ParseError } from "effect/ParseResult"
-import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
+import * as OS from "node:os"
+import * as WT from "node:worker_threads"
 import { ConfigBuilder } from "./ConfigBuilder.js"
 import { BuildError } from "./ContentlayerError.js"
+import * as ContentWorkerSchema from "./ContentWorkerSchema.js"
 import type * as Document from "./Document.js"
 import { DocumentStorage } from "./DocumentStorage.js"
 import { WatchMode } from "./References.js"
@@ -31,11 +35,14 @@ export interface BuiltDocument {
   readonly output: Source.Output<unknown>
 }
 
+const workerPoolSize = OS.cpus().length
+
 /**
  * @since 1.0.0
  * @category run
  */
 export const run = Effect.gen(function*() {
+  const worker = yield* ContentWorkerPool
   const config = yield* ConfigBuilder
   const storage = yield* DocumentStorage
   const watchMode = yield* WatchMode
@@ -45,6 +52,7 @@ export const run = Effect.gen(function*() {
     Stream.flatMap(
       Effect.fnUntraced(
         function*(config) {
+          const { documents } = config.config
           const idMap = new Map<string, Set<string>>()
           const idMapPrevious = new Map<string, Array<string>>()
           const idMailbox = yield* Mailbox.make<void, any>()
@@ -57,7 +65,7 @@ export const run = Effect.gen(function*() {
             return count
           }
 
-          yield* storage.writeIndex(config.documents).pipe(
+          yield* storage.writeIndex(documents).pipe(
             Effect.catchAllCause(Effect.logWarning),
             Effect.annotateLogs({ fiber: "writeIndex" }),
             Effect.uninterruptible,
@@ -86,7 +94,7 @@ export const run = Effect.gen(function*() {
             Effect.fork
           )
 
-          return yield* Stream.fromIterable(config.documents).pipe(
+          return yield* Stream.fromIterable(documents).pipe(
             Stream.bindTo("document"),
             Stream.bind(
               "output",
@@ -118,20 +126,15 @@ export const run = Effect.gen(function*() {
             Stream.mapEffect(
               Effect.fnUntraced(
                 function*({ document, output }) {
-                  const decoded = yield* (Schema.decode(document.fields)(output.fields) as Effect.Effect<
-                    Record<string, unknown>,
-                    ParseError
-                  >).pipe(
-                    Effect.mapError((parseError) =>
-                      new BuildError({
-                        parseError,
-                        documentType: document.name,
-                        documentId: output.id
-                      })
-                    )
-                  )
-                  const fields = yield* resolveComputedFields({ document, output, fields: decoded })
-                  yield* storage.write({ document, fields, output })
+                  yield* worker.ProcessDocument({
+                    configPath: new ContentWorkerSchema.ConfigPath({
+                      path: config.path,
+                      entrypoint: config.entrypoint
+                    }),
+                    name: document.name,
+                    id: output.id,
+                    meta: output.meta
+                  })
                   builtDocumentCount++
 
                   let documentIds = idMap.get(document.name)
@@ -181,29 +184,29 @@ export const run = Effect.gen(function*() {
   )
 })
 
-const resolveComputedFields = (options: {
-  readonly document: Document.Document.AnyWithProps
-  readonly output: Source.Output<unknown>
-  readonly fields: Record<string, unknown>
-}): Effect.Effect<Record<string, unknown>, ParseError> =>
-  Effect.reduce(
-    options.document.computedFields,
-    options.fields,
-    (fields, group) =>
-      Effect.forEach(
-        group,
-        (field) =>
-          field.resolve(fields, options.output).pipe(
-            Effect.tap(Schema.validate(field.schema))
-          ),
-        { concurrency: group.length }
-      ).pipe(
-        Effect.map((values) => {
-          const newFields = { ...fields }
-          for (let index = 0; index < group.length; index++) {
-            newFields[group[index].name] = values[index]
-          }
-          return newFields
-        })
+/**
+ * @since 1.0.0
+ * @category ContentWorkerPool
+ */
+export class ContentWorkerPool
+  extends Effect.Service<ContentWorkerPool>()("@effect/contentlayer-core/DocumentBuilder/ContentWorkerPool", {
+    scoped: RpcClient.make(ContentWorkerSchema.Rpcs),
+    dependencies: [
+      RpcClient.layerProtocolWorker({
+        minSize: 1,
+        maxSize: workerPoolSize,
+        timeToLive: "30 seconds",
+        concurrency: 10
+      }).pipe(
+        Layer.provide(NodeWorker.layerPlatform(() => tsWorker("./ContentWorker.ts")))
       )
-  ) as Effect.Effect<Record<string, unknown>, ParseError>
+    ]
+  })
+{}
+
+const tsWorker = (path: string) => {
+  const url = new URL(path, import.meta.url)
+  return new WT.Worker(url, {
+    execArgv: ["--experimental-strip-types"]
+  })
+}

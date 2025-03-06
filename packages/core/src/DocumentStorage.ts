@@ -54,13 +54,13 @@ export class DocumentStorage extends Effect.Service<DocumentStorage>()("@effect/
       const hashedId = yield* sha256String(output.id)
       const dir = path_.join(outputDir, document.name)
       const path = path_.join(dir, `${hashedId}.json`)
-      yield* fs.makeDirectory(dir, { recursive: true })
+      yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }))
       const encodedFieldsJson = yield* (Schema.encode(persistedDocument)({
         id: output.id,
         fields,
         meta: output.meta
       }) as Effect.Effect<string, ParseError>)
-      yield* fs.writeFileString(path, encodedFieldsJson)
+      yield* Effect.orDie(fs.writeFileString(path, encodedFieldsJson))
     })
 
     const writeIndex = Effect.fnUntraced(function*(documents: ReadonlyArray<Document.Any>) {
@@ -151,7 +151,7 @@ export { ${exports.join(", ")} }`
 
 export default [${exports.join(", ")}]
 `
-      yield* fs.writeFileString(path_.join(outputDir, documentName, "index.js"), output)
+      yield* Effect.orDie(fs.writeFileString(path_.join(outputDir, documentName, "index.js"), output))
 
       // remove missing ids
       yield* Effect.ignore(

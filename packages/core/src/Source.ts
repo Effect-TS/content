@@ -9,6 +9,7 @@ import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import { dual } from "effect/Function"
 import * as Mailbox from "effect/Mailbox"
+import * as Option from "effect/Option"
 import type { Pipeable } from "effect/Pipeable"
 import { pipeArguments } from "effect/Pipeable"
 import * as Schema from "effect/Schema"
@@ -49,6 +50,24 @@ const SourceProto: Omit<Source<any, any, any>, "events" | "metaSchema"> = {
 
 /**
  * @since 1.0.0
+ * @category WorkerEventStream
+ */
+export class WorkerEventStream extends Context.Tag("@effect/contentlayer-core/Source/WorkerEventStream")<
+  WorkerEventStream,
+  Stream.Stream<WorkerEvent>
+>() {}
+
+/**
+ * @since 1.0.0
+ * @category WorkerEventStream
+ */
+export interface WorkerEvent {
+  readonly id: string
+  readonly meta: unknown
+}
+
+/**
+ * @since 1.0.0
  * @category constructors
  */
 export const make = <Meta, Context, EA>(options: {
@@ -57,6 +76,36 @@ export const make = <Meta, Context, EA>(options: {
 }): Source<Meta, Context, EA> => ({
   ...SourceProto,
   ...options
+})
+
+/**
+ * @since 1.0.0
+ * @category constructors
+ */
+export const makeWithHydrate = <Meta, Context, EA>(options: {
+  readonly events: Stream.Stream<Event<Meta, Context>, EA, Source.Provided>
+  readonly metaSchema: Schema.Schema<Meta, any>
+  readonly hydrate: (id: string, meta: Meta) => Effect.Effect<Output<Meta, Context>, EA, Source.Provided>
+}): Source<Meta, Context, EA> => ({
+  ...SourceProto,
+  ...options,
+  events: Effect.gen(function*() {
+    const workerStream = yield* Effect.serviceOption(WorkerEventStream)
+    const decodeMeta = Schema.decode(options.metaSchema)
+    return Option.match(workerStream, {
+      onNone: () => options.events,
+      onSome: (workerStream) =>
+        workerStream.pipe(
+          Stream.mapEffect((event) =>
+            decodeMeta(event.meta).pipe(
+              Effect.orDie,
+              Effect.flatMap((meta) => options.hydrate(event.id, meta))
+            )
+          ),
+          Stream.map((output) => EventAdded(output, true))
+        )
+    })
+  }).pipe(Stream.unwrap)
 })
 
 /**
@@ -287,6 +336,24 @@ export const FileSystemMeta: Schema.Schema<FileSystemMeta> = Schema.Struct({
 export const fileSystem = (options: {
   readonly paths: ReadonlyArray<string>
 }): Source<FileSystemMeta, never, ContentlayerError> => {
+  const loadMeta = (
+    fs: FileSystem.FileSystem,
+    path_: Path.Path,
+    path: string
+  ): Output<FileSystemMeta> =>
+    new Output({
+      id: path,
+      stream: Stream.orDie(fs.stream(path)),
+      content: Effect.orDie(fs.readFileString(path)),
+      contentUint8Array: Effect.orDie(fs.readFile(path)),
+      meta: ({
+        ...path_.parse(path),
+        path
+      }),
+      context: Context.empty(),
+      fields: {}
+    })
+
   const events = Effect.gen(function*() {
     const watchMode = yield* WatchMode
     const fs = yield* FileSystem.FileSystem
@@ -313,21 +380,7 @@ export const fileSystem = (options: {
       return false
     }
 
-    const loadMeta = (path: string): Output<FileSystemMeta> =>
-      new Output({
-        id: path,
-        stream: Stream.orDie(fs.stream(path)),
-        content: Effect.orDie(fs.readFileString(path)),
-        contentUint8Array: Effect.orDie(fs.readFile(path)),
-        meta: ({
-          ...path_.parse(path),
-          path
-        }),
-        context: Context.empty(),
-        fields: {}
-      })
-
-    const initialEvents = paths.map((path) => EventAdded(loadMeta(path), true))
+    const initialEvents = paths.map((path) => EventAdded(loadMeta(fs, path_, path), true))
 
     if (watchMode) {
       const topLevelDirs = new Set<string>()
@@ -354,7 +407,7 @@ export const fileSystem = (options: {
           Stream.filter((event) => pathMatch(event.path)),
           Stream.runForEach((event) =>
             mailbox.offer(
-              event._tag === "Remove" ? EventRemoved(event.path) : EventAdded(loadMeta(event.path), false)
+              event._tag === "Remove" ? EventRemoved(event.path) : EventAdded(loadMeta(fs, path_, event.path), false)
             )
           ),
           Effect.forkScoped
@@ -367,8 +420,13 @@ export const fileSystem = (options: {
     return Stream.fromIterable(initialEvents)
   }).pipe(Stream.unwrapScoped)
 
-  return make({
+  return makeWithHydrate({
     events,
-    metaSchema: FileSystemMeta
+    metaSchema: FileSystemMeta,
+    hydrate: Effect.fnUntraced(function*(_id, meta) {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      return loadMeta(fs, path, meta.path)
+    })
   })
 }
