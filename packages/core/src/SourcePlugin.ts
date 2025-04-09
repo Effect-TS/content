@@ -3,6 +3,7 @@
  */
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import { constTrue } from "effect/Function"
 import * as Mailbox from "effect/Mailbox"
 import type * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
@@ -22,6 +23,14 @@ import * as Source from "./Source.ts"
 
 /**
  * @since 1.0.0
+ * @category References
+ */
+export class Enabled extends Context.Reference<Enabled>()("@effect/contentlayer-core/SourcePlugin/Enabled", {
+  defaultValue: constTrue
+}) {}
+
+/**
+ * @since 1.0.0
  * @category Plugins
  */
 export const make = <E2, Meta, Context, Context2>(
@@ -31,6 +40,11 @@ export const make = <E2, Meta, Context, Context2>(
 ) =>
 <E>(self: Source.Source<Meta, Context, E>): Source.Source<Meta, Context2, E | E2> => {
   const events = Effect.gen(function*() {
+    const enabled = yield* Enabled
+    if (!enabled) {
+      return self.events as Stream.Stream<Source.Event<Meta, Context2>, E | E2>
+    }
+
     const latch = yield* Effect.makeLatch(true)
     const mailbox = yield* Mailbox.make<Source.Output<Meta, Context>>()
     const events = yield* Mailbox.make<Source.Event<Meta, Context2>, E | E2>()

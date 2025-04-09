@@ -24,6 +24,7 @@ import type * as Document from "./Document.ts"
 import { DocumentStorage } from "./DocumentStorage.ts"
 import { WatchMode } from "./References.ts"
 import type * as Source from "./Source.ts"
+import * as SourcePlugin from "./SourcePlugin.ts"
 
 /**
  * @since 1.0.0
@@ -48,6 +49,7 @@ export const run = Effect.gen(function*() {
   const watchMode = yield* WatchMode
 
   return yield* config.config.pipe(
+    watchMode ? identity : Stream.take(1),
     Stream.tap(() => Effect.log("Building documents")),
     Stream.flatMap(
       Effect.fnUntraced(
@@ -74,7 +76,11 @@ export const run = Effect.gen(function*() {
 
           yield* Mailbox.toStream(idMailbox).pipe(
             Stream.debounce(500),
-            Stream.tap(() => Effect.logInfo(`${getIdCount()} documents built`)),
+            Stream.tap(() =>
+              Effect.logInfo(`${getIdCount()} documents built`).pipe(
+                Effect.when(() => watchMode)
+              )
+            ),
             Stream.flatMap(() =>
               Stream.fromIterable(
                 Iterable.map(idMap, ([documentName, ids]) => [documentName, Array.from(ids)] as const)
@@ -167,6 +173,7 @@ export const run = Effect.gen(function*() {
               { concurrency: "unbounded" }
             ),
             Stream.runDrain,
+            Effect.provideService(SourcePlugin.Enabled, false),
             Effect.onExit((exit) => idMailbox.done(exit)),
             Effect.map(getIdCount)
           )

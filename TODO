@@ -1,10 +1,9 @@
-- Ensure plugins are only run in workers
+- caching
+  - invalidate when config changes
+  - hash of the source content
+  - cms?
 - error messages
   - non-contentlayer errors
 - worker configuration
   - on / off
   - pool size
-- caching
-  - invalidate when config changes
-  - hash of the source content
-  - cms?
