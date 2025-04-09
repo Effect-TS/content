@@ -193,6 +193,7 @@ export type OutputTypeId = typeof OutputTypeId
  */
 export class Output<out Meta, in Context = never> extends Data.Class<{
   readonly id: string
+  readonly version: number
   readonly stream: Stream.Stream<Uint8Array>
   readonly content: Effect.Effect<string>
   readonly contentUint8Array: Effect.Effect<Uint8Array>
@@ -314,6 +315,7 @@ export declare namespace Event {
  */
 export interface FileSystemMeta extends Path.Path.Parsed {
   readonly path: string
+  readonly mtime: number
 }
 
 /**
@@ -326,7 +328,8 @@ export const FileSystemMeta: Schema.Schema<FileSystemMeta> = Schema.Struct({
   base: Schema.String,
   ext: Schema.String,
   path: Schema.String,
-  name: Schema.String
+  name: Schema.String,
+  mtime: Schema.Number
 })
 
 /**
@@ -339,16 +342,19 @@ export const fileSystem = (options: {
   const loadMeta = (
     fs: FileSystem.FileSystem,
     path_: Path.Path,
-    path: string
+    path: string,
+    mtime: number
   ): Output<FileSystemMeta> =>
     new Output({
       id: path,
+      version: mtime,
       stream: Stream.orDie(fs.stream(path)),
       content: Effect.orDie(fs.readFileString(path)),
       contentUint8Array: Effect.orDie(fs.readFile(path)),
       meta: ({
         ...path_.parse(path),
-        path
+        path,
+        mtime
       }),
       context: Context.empty(),
       fields: {}
@@ -361,7 +367,7 @@ export const fileSystem = (options: {
     const cwd = path_.resolve()
 
     const paths = yield* Effect.tryPromise({
-      try: () => Glob.glob(options.paths as Array<string>),
+      try: () => Glob.glob(options.paths as Array<string>, { stat: true, withFileTypes: true }),
       catch: (cause) =>
         new ContentlayerError({
           module: "Source",
@@ -380,12 +386,22 @@ export const fileSystem = (options: {
       return false
     }
 
-    const initialEvents = paths.map((path) => EventAdded(loadMeta(fs, path_, path), true))
+    const initialEvents = paths.map((path) =>
+      EventAdded(
+        loadMeta(
+          fs,
+          path_,
+          path.fullpath(),
+          path.mtime?.getTime() ?? 0
+        ),
+        true
+      )
+    )
 
     if (watchMode) {
       const topLevelDirs = new Set<string>()
       for (const path of paths) {
-        const dir = path_.dirname(path)
+        const dir = path_.dirname(path.fullpath())
         const match = Array.from(topLevelDirs).find((tld) => tld.startsWith(dir))
         if (!match) {
           topLevelDirs.add(dir)
@@ -405,11 +421,17 @@ export const fileSystem = (options: {
             path: path_.relative(cwd, event.path)
           })),
           Stream.filter((event) => pathMatch(event.path)),
-          Stream.runForEach((event) =>
-            mailbox.offer(
-              event._tag === "Remove" ? EventRemoved(event.path) : EventAdded(loadMeta(fs, path_, event.path), false)
-            )
-          ),
+          Stream.runForEach(Effect.fnUntraced(function*(event) {
+            if (event._tag === "Remove") {
+              return yield* mailbox.offer(EventRemoved(event.path))
+            }
+            const stat = yield* fs.stat(event.path)
+            const version = Option.match(stat.mtime, {
+              onNone: () => 0,
+              onSome: (mtime) => mtime.getTime()
+            })
+            return yield* mailbox.offer(EventAdded(loadMeta(fs, path_, event.path, version), false))
+          })),
           Effect.forkScoped
         )
       }
@@ -426,7 +448,7 @@ export const fileSystem = (options: {
     hydrate: Effect.fnUntraced(function*(_id, meta) {
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
-      return loadMeta(fs, path, meta.path)
+      return loadMeta(fs, path, meta.path, meta.mtime)
     })
   })
 }

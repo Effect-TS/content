@@ -18,6 +18,7 @@ import * as Stream from "effect/Stream"
 import * as OS from "node:os"
 import * as WT from "node:worker_threads"
 import { ConfigBuilder } from "./ConfigBuilder.ts"
+import { ContentCache } from "./ContentCache.ts"
 import { BuildError } from "./ContentlayerError.ts"
 import * as ContentWorkerSchema from "./ContentWorkerSchema.ts"
 import type * as Document from "./Document.ts"
@@ -47,6 +48,7 @@ export const run = Effect.gen(function*() {
   const config = yield* ConfigBuilder
   const storage = yield* DocumentStorage
   const watchMode = yield* WatchMode
+  const contentCache = yield* ContentCache
 
   return yield* config.config.pipe(
     watchMode ? identity : Stream.take(1),
@@ -59,6 +61,7 @@ export const run = Effect.gen(function*() {
           const idMapPrevious = new Map<string, Array<string>>()
           const idMailbox = yield* Mailbox.make<void, any>()
           const idEquiv = Arr.getEquivalence(Equivalence.string)
+          const cache = yield* contentCache.regenerate(config.hash)
           let builtDocumentCount = 0
 
           const getIdCount = () => {
@@ -103,7 +106,7 @@ export const run = Effect.gen(function*() {
           return yield* Stream.fromIterable(documents).pipe(
             Stream.bindTo("document"),
             Stream.bind(
-              "output",
+              "event",
               ({ document }) =>
                 (document.source.events as Stream.Stream<Source.Event<any, any>>).pipe(
                   Stream.tap((event) => {
@@ -117,7 +120,7 @@ export const run = Effect.gen(function*() {
                   }),
                   Stream.filterMap((event) => {
                     if (event._tag === "Added") {
-                      return Option.some(event.output)
+                      return Option.some(event)
                     }
                     const documentIds = idMap.get(document.name)
                     if (documentIds && documentIds.has(event.id)) {
@@ -129,9 +132,13 @@ export const run = Effect.gen(function*() {
                 ),
               { concurrency: "unbounded" }
             ),
+            Stream.let("output", ({ event }) => event.output),
             Stream.mapEffect(
               Effect.fnUntraced(
-                function*({ document, output }) {
+                function*({ document, event, output }) {
+                  if (event.initial && cache.exists(output.id, output.version)) {
+                    return
+                  }
                   yield* worker.ProcessDocument({
                     configPath: new ContentWorkerSchema.ConfigPath({
                       path: config.path,
@@ -141,6 +148,7 @@ export const run = Effect.gen(function*() {
                     id: output.id,
                     meta: output.meta
                   })
+                  yield* cache.add(output.id, output.version)
                   builtDocumentCount++
 
                   let documentIds = idMap.get(document.name)

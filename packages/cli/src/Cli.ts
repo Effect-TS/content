@@ -1,6 +1,7 @@
 import * as Command from "@effect/cli/Command"
 import * as Options from "@effect/cli/Options"
 import * as ConfigBuilder from "@effect/contentlayer-core/ConfigBuilder"
+import { ContentCache } from "@effect/contentlayer-core/ContentCache"
 import * as DocumentBuilder from "@effect/contentlayer-core/DocumentBuilder"
 import * as DocumentStorage from "@effect/contentlayer-core/DocumentStorage"
 import { BuildOptions } from "@effect/contentlayer-core/Esbuild"
@@ -36,6 +37,7 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
   Command.provide(({ configPath, watchMode }) =>
     Layer.provideMerge(
       Layer.mergeAll(
+        ContentCache.Default,
         ConfigBuilder.ConfigBuilder.Live,
         DocumentStorage.DocumentStorage.Default,
         DocumentBuilder.ContentWorkerPool.Default

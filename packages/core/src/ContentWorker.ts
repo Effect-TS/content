@@ -23,7 +23,7 @@ const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
 
   const configs = yield* RcMap.make({
     lookup: (path: ContentWorkerSchema.ConfigPath) =>
-      ConfigBuilder.fromPath(path.path, path.entrypoint).pipe(
+      ConfigBuilder.fromPath(path.path, path.entrypoint, "").pipe(
         Effect.flatten,
         Effect.orDie
       ),

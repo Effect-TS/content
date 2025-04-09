@@ -5,6 +5,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import * as NodePath from "@effect/platform-node/NodePath"
 import * as FileSystem from "@effect/platform/FileSystem"
 import * as Path from "@effect/platform/Path"
+import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 import { identity } from "effect/Function"
 import * as Layer from "effect/Layer"
@@ -18,6 +19,10 @@ import { ContentlayerError } from "./ContentlayerError.ts"
 import type { EsbuildSuccess } from "./Esbuild.ts"
 import { Esbuild } from "./Esbuild.ts"
 
+/**
+ * @since 1.0.0
+ * @category constructors
+ */
 export const make = Effect.gen(function*() {
   const esbuild = yield* Esbuild
   const config = yield* SubscriptionRef.make(Option.none<BuiltConfig>())
@@ -44,6 +49,7 @@ export const make = Effect.gen(function*() {
  * @category models
  */
 export interface BuiltConfig {
+  readonly hash: string
   readonly config: Config.Config
   readonly path: string
   readonly entrypoint: string
@@ -60,7 +66,7 @@ export class ConfigBuilder extends Effect.Tag("@effect/contentlayer-core/ConfigB
   )
 }
 
-// const ESBUILD_HASH_REGEX = /compiled-contentlayer-config-(.+)$/
+const ESBUILD_HASH_REGEX = /compiled-contentlayer-config-(.+)$/
 const configAsOption = Option.liftPredicate(Config.isConfig)
 
 const build = (
@@ -78,11 +84,11 @@ const build = (
       Effect.orDie
     )
 
-    // const esbuildHash = yield* Option.fromNullable(outfilePath.match(ESBUILD_HASH_REGEX)).pipe(
-    //   Option.flatMap(Array.get(1)),
-    //   Effect.orDie
-    // )
-    return yield* fromPath(outfilePath, path.resolve(output.entryPoint!))
+    const esbuildHash = yield* Option.fromNullable(outfilePath.match(ESBUILD_HASH_REGEX)).pipe(
+      Option.flatMap(Arr.get(1)),
+      Effect.orDie
+    )
+    return yield* fromPath(outfilePath, path.resolve(output.entryPoint!), esbuildHash)
   })
 
 /**
@@ -91,7 +97,8 @@ const build = (
  */
 export const fromPath = Effect.fnUntraced(function*(
   outPath: string,
-  entrypoint: string
+  entrypoint: string,
+  hash: string
 ) {
   const fs = yield* FileSystem.FileSystem
 
@@ -116,6 +123,11 @@ export const fromPath = Effect.fnUntraced(function*(
   })
 
   return configAsOption(context.module.exports.default).pipe(
-    Option.map((config): BuiltConfig => ({ config, path: outPath, entrypoint }))
+    Option.map((config): BuiltConfig => ({
+      hash,
+      config,
+      path: outPath,
+      entrypoint
+    }))
   )
 })

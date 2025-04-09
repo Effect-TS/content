@@ -1,7 +1,3 @@
-- caching
-  - invalidate when config changes
-  - hash of the source content
-  - cms?
 - error messages
   - non-contentlayer errors
 - worker configuration
