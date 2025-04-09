@@ -2,7 +2,7 @@
  * @since 1.0.0
  */
 import * as Predicate from "effect/Predicate"
-import type { Document } from "./Document.js"
+import type { Document } from "./Document.ts"
 
 export const TypeId = Symbol.for("@effect/contentlayer/Config")
 

@@ -8,8 +8,8 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as AST from "effect/SchemaAST"
 import ts from "typescript"
-import type { Document } from "./Document.js"
-import type { Source } from "./Source.js"
+import type { Document } from "./Document.ts"
+import type { Source } from "./Source.ts"
 
 /**
  * @since 1.0.0

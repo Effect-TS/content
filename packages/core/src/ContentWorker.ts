@@ -11,12 +11,12 @@ import { isParseError, type ParseError } from "effect/ParseResult"
 import * as RcMap from "effect/RcMap"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
-import * as ConfigBuilder from "./ConfigBuilder.js"
-import { BuildError, ContentlayerError } from "./ContentlayerError.js"
-import * as ContentWorkerSchema from "./ContentWorkerSchema.js"
-import type * as Document from "./Document.js"
-import { DocumentStorage } from "./DocumentStorage.js"
-import * as Source from "./Source.js"
+import * as ConfigBuilder from "./ConfigBuilder.ts"
+import { BuildError, ContentlayerError } from "./ContentlayerError.ts"
+import * as ContentWorkerSchema from "./ContentWorkerSchema.ts"
+import type * as Document from "./Document.ts"
+import { DocumentStorage } from "./DocumentStorage.ts"
+import * as Source from "./Source.ts"
 
 const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
   const storage = yield* DocumentStorage
@@ -34,12 +34,6 @@ const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
     ProcessDocument: Effect.fnUntraced(
       function*({ configPath, id, meta, name }) {
         const config = yield* RcMap.get(configs, configPath)
-        console.log({
-          config,
-          id,
-          meta,
-          name
-        })
         const document = config.config.documents.find((doc) => doc.name === name)!
         const stream = Stream.succeed<Source.WorkerEvent>({
           id,

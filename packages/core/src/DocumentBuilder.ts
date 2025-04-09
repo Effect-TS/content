@@ -17,13 +17,13 @@ import * as Option from "effect/Option"
 import * as Stream from "effect/Stream"
 import * as OS from "node:os"
 import * as WT from "node:worker_threads"
-import { ConfigBuilder } from "./ConfigBuilder.js"
-import { BuildError } from "./ContentlayerError.js"
-import * as ContentWorkerSchema from "./ContentWorkerSchema.js"
-import type * as Document from "./Document.js"
-import { DocumentStorage } from "./DocumentStorage.js"
-import { WatchMode } from "./References.js"
-import type * as Source from "./Source.js"
+import { ConfigBuilder } from "./ConfigBuilder.ts"
+import { BuildError } from "./ContentlayerError.ts"
+import * as ContentWorkerSchema from "./ContentWorkerSchema.ts"
+import type * as Document from "./Document.ts"
+import { DocumentStorage } from "./DocumentStorage.ts"
+import { WatchMode } from "./References.ts"
+import type * as Source from "./Source.ts"
 
 /**
  * @since 1.0.0
@@ -198,14 +198,19 @@ export class ContentWorkerPool
         timeToLive: "30 seconds",
         concurrency: 10
       }).pipe(
-        Layer.provide(NodeWorker.layerPlatform(() => tsWorker("./ContentWorker.ts")))
+        Layer.provide(NodeWorker.layerPlatform(() => tsWorker("./ContentWorker")))
       )
     ]
   })
 {}
 
 const tsWorker = (path: string) => {
-  const url = new URL(path, import.meta.url)
+  const isTypescript = import.meta.url.endsWith(".ts")
+  if (!isTypescript) {
+    const url = new URL(path + ".js", import.meta.url)
+    return new WT.Worker(url)
+  }
+  const url = new URL(path + ".ts", import.meta.url)
   return new WT.Worker(url, {
     execArgv: ["--experimental-strip-types"]
   })

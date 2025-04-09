@@ -10,9 +10,9 @@ import * as Effect from "effect/Effect"
 import { globalValue } from "effect/GlobalValue"
 import type { ParseError } from "effect/ParseResult"
 import * as Schema from "effect/Schema"
-import type { Document } from "./Document.js"
-import type { BuiltDocument } from "./DocumentBuilder.js"
-import * as TypeBuilder from "./TypeBuilder.js"
+import type { Document } from "./Document.ts"
+import type { BuiltDocument } from "./DocumentBuilder.ts"
+import * as TypeBuilder from "./TypeBuilder.ts"
 
 /**
  * @since 1.0.0

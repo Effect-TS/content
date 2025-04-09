@@ -1,7 +1,6 @@
+- Ensure plugins are only run in workers
 - error messages
   - non-contentlayer errors
-- fix workers
-- replace single element stream in workers
 - worker configuration
   - on / off
   - pool size

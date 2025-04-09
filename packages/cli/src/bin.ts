@@ -5,7 +5,7 @@ import * as ParcelWatcher from "@effect/platform-node/NodeFileSystem/ParcelWatch
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Cli from "./Cli.js"
+import * as Cli from "./Cli.ts"
 
 const MainLive = Layer.mergeAll(
   DevTools.layer(),

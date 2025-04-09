@@ -17,8 +17,8 @@ import * as Unified from "unified"
 import type * as Unist from "unist"
 import * as Remove from "unist-util-remove"
 import type { VFile } from "vfile"
-import { ContentlayerError } from "./ContentlayerError.js"
-import * as Source from "./Source.js"
+import { ContentlayerError } from "./ContentlayerError.ts"
+import * as Source from "./Source.ts"
 
 /**
  * @since 1.0.0

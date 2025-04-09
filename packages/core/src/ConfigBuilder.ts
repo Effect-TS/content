@@ -13,10 +13,10 @@ import * as Stream from "effect/Stream"
 import * as SubscriptionRef from "effect/SubscriptionRef"
 import * as Module from "node:module"
 import * as VM from "node:vm"
-import * as Config from "./Config.js"
-import { ContentlayerError } from "./ContentlayerError.js"
-import type { EsbuildSuccess } from "./Esbuild.js"
-import { Esbuild } from "./Esbuild.js"
+import * as Config from "./Config.ts"
+import { ContentlayerError } from "./ContentlayerError.ts"
+import type { EsbuildSuccess } from "./Esbuild.ts"
+import { Esbuild } from "./Esbuild.ts"
 
 export const make = Effect.gen(function*() {
   const esbuild = yield* Esbuild

@@ -6,7 +6,7 @@ import * as Option from "effect/Option"
 import type { Pipeable } from "effect/Pipeable"
 import * as Schema from "effect/Schema"
 import type { Invariant } from "effect/Types"
-import type * as Source from "./Source.js"
+import type * as Source from "./Source.ts"
 
 export const TypeId: unique symbol = Symbol.for("@effect/content/Document")
 

@@ -16,8 +16,8 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as Glob from "glob"
 import * as Minimatch from "minimatch"
-import { ContentlayerError } from "./ContentlayerError.js"
-import { WatchMode } from "./References.js"
+import { ContentlayerError } from "./ContentlayerError.ts"
+import { WatchMode } from "./References.ts"
 
 /**
  * @since 1.0.0
