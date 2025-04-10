@@ -211,7 +211,7 @@ export class ContentWorkerPool
         minSize: 1,
         maxSize: workerPoolSize,
         timeToLive: "30 seconds",
-        concurrency: 10
+        concurrency: 3
       }).pipe(
         Layer.provide(NodeWorker.layerPlatform(() => tsWorker("./ContentWorker")))
       )
