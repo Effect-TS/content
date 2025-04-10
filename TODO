@@ -1,3 +1,4 @@
+- re-use worker processing pipeline between requests
 - error messages
   - non-contentlayer errors
 - worker configuration
