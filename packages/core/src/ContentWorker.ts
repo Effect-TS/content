@@ -7,12 +7,15 @@ import * as NodeWorkerRunner from "@effect/platform-node/NodeWorkerRunner"
 import * as RpcServer from "@effect/rpc/RpcServer"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Mailbox from "effect/Mailbox"
+import * as MutableList from "effect/MutableList"
 import { isParseError, type ParseError } from "effect/ParseResult"
 import * as RcMap from "effect/RcMap"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
+import { unify } from "effect/Unify"
 import * as ConfigBuilder from "./ConfigBuilder.ts"
-import { BuildError, ContentlayerError } from "./ContentlayerError.ts"
+import { BuildError } from "./ContentlayerError.ts"
 import * as ContentWorkerSchema from "./ContentWorkerSchema.ts"
 import type * as Document from "./Document.ts"
 import { DocumentStorage } from "./DocumentStorage.ts"
@@ -22,52 +25,96 @@ const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
   const storage = yield* DocumentStorage
 
   const configs = yield* RcMap.make({
-    lookup: (path: ContentWorkerSchema.ConfigPath) =>
-      ConfigBuilder.fromPath(path.path, path.entrypoint, "").pipe(
+    lookup: Effect.fnUntraced(function*(path: ContentWorkerSchema.ConfigPath) {
+      const config = yield* ConfigBuilder.fromPath(path.path, path.entrypoint, "").pipe(
         Effect.flatten,
         Effect.orDie
-      ),
+      )
+
+      const docProcessor = yield* RcMap.make({
+        lookup: Effect.fnUntraced(function*(name: string) {
+          const document = config.config.documents.find((doc) => doc.name === name)!
+          const mailbox = yield* Mailbox.make<Source.WorkerEvent>()
+
+          const resumes = new Map<string, MutableList.MutableList<(_: Effect.Effect<void, BuildError>) => void>>()
+
+          yield* unify(document.source.events).pipe(
+            Stream.orDie,
+            Stream.mapEffect(
+              Effect.fnUntraced(function*(event) {
+                if (event._tag !== "Added") return
+                const { output } = event
+                const decoded = yield* (Schema.decode(document.fields)(output.fields) as Effect.Effect<
+                  Record<string, unknown>,
+                  ParseError
+                >)
+                const fields = yield* resolveComputedFields({ document, output, fields: decoded })
+                yield* storage.write({ document, fields, output })
+
+                const list = resumes.get(event.id)
+                if (!list) return
+                const resume = MutableList.shift(list)!
+                if (MutableList.isEmpty(list)) {
+                  resumes.delete(event.id)
+                }
+                resume(Effect.void)
+              }, (effect, { id }) =>
+                Effect.catchIf(
+                  effect,
+                  isParseError,
+                  (parseError) => BuildError.fromParseError({ parseError, documentType: name, documentId: id })
+                )),
+              { concurrency: "unbounded" }
+            ),
+            Stream.runDrain,
+            Effect.catchAllCause((cause) =>
+              Effect.suspend(() => {
+                for (const list of resumes.values()) {
+                  for (const resume of list) {
+                    resume(Effect.failCause(cause))
+                  }
+                }
+                resumes.clear()
+                return mailbox.clear
+              })
+            ),
+            Effect.forever,
+            Effect.provideService(Source.WorkerEventStream, Mailbox.toStream(mailbox)),
+            Effect.forkScoped,
+            Effect.interruptible
+          )
+
+          const process = (id: string, meta: unknown) =>
+            Effect.async<void, BuildError>((resume) => {
+              let list = resumes.get(id)
+              if (!list) {
+                resumes.set(id, list = MutableList.empty())
+              }
+              MutableList.append(list, resume)
+              mailbox.unsafeOffer({ id, meta })
+            })
+
+          return process
+        }),
+        idleTimeToLive: "1 minute"
+      })
+
+      const process = (name: string, id: string, meta: unknown) =>
+        RcMap.get(docProcessor, name).pipe(
+          Effect.flatMap((process) => process(id, meta)),
+          Effect.scoped
+        )
+
+      return { ...config, process } as const
+    }),
     idleTimeToLive: "1 minute"
   })
 
   return {
-    ProcessDocument: Effect.fnUntraced(
-      function*({ configPath, id, meta, name }) {
-        const config = yield* RcMap.get(configs, configPath)
-        const document = config.config.documents.find((doc) => doc.name === name)!
-        const stream = Stream.succeed<Source.WorkerEvent>({
-          id,
-          meta
-        })
-        const event = yield* document.source.events.pipe(
-          Stream.runHead,
-          Effect.flatten,
-          Effect.orDie,
-          Effect.provideService(Source.WorkerEventStream, stream)
-        )
-        if (event._tag !== "Added") {
-          return yield* new ContentlayerError({
-            module: "ContentWorker",
-            method: "ProcessDocument",
-            description: `Expected an "Added" event but got ${event._tag}`
-          })
-        }
-        const { output } = event
-        const decoded = yield* (Schema.decode(document.fields)(output.fields) as Effect.Effect<
-          Record<string, unknown>,
-          ParseError
-        >)
-        const fields = yield* resolveComputedFields({ document, output, fields: decoded })
-        yield* storage.write({ document, fields, output })
-      },
-      (effect, { id, name }) =>
-        Effect.catchIf(
-          effect,
-          isParseError,
-          (parseError) => BuildError.fromParseError({ parseError, documentType: name, documentId: id })
-        ),
-      Effect.scoped
-    )
+    ProcessDocument: Effect.fnUntraced(function*({ configPath, id, meta, name }) {
+      const config = yield* RcMap.get(configs, configPath)
+      return yield* config.process(name, id, meta)
+    })
   }
 })).pipe(
   Layer.provide([DocumentStorage.Default, NodeContext.layer])
