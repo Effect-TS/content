@@ -15,7 +15,9 @@
   },
   "scripts": {
     "codegen": "build-utils prepare-v2",
-    "build": "tsup && tsc -b tsconfig.build.json && tsx scripts/copy-package-json.ts",
+    "build": "tsup && pnpm build:dts && pnpm build:package",
+    "build:dts": "tsc -b tsconfig.build.json",
+    "build:package": "tsx scripts/copy-package-json.ts",
     "check": "tsc -b tsconfig.json",
     "test": "vitest",
     "coverage": "vitest --coverage"
