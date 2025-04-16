@@ -4,6 +4,7 @@
 import * as NodeContext from "@effect/platform-node/NodeContext"
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as NodeWorkerRunner from "@effect/platform-node/NodeWorkerRunner"
+import type { WorkerError } from "@effect/platform/WorkerError"
 import * as RpcServer from "@effect/rpc/RpcServer"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -147,12 +148,16 @@ const resolveComputedFields = (options: {
       )
   ) as Effect.Effect<Record<string, unknown>, ParseError>
 
-const Main = RpcServer.layer(ContentWorkerSchema.Rpcs).pipe(
+/**
+ * @since 1.0.0
+ * @category Layers
+ */
+export const layer: Layer.Layer<never, WorkerError> = RpcServer.layer(ContentWorkerSchema.Rpcs).pipe(
   Layer.provide(Handlers),
   Layer.provide(RpcServer.layerProtocolWorkerRunner),
   Layer.provide(NodeWorkerRunner.layer)
 )
 
-NodeWorkerRunner.launch(Main).pipe(
+Layer.launch(layer).pipe(
   NodeRuntime.runMain
 )

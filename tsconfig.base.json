@@ -40,12 +40,9 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
     "paths": {
-      "@effect/contentlayer-cli": ["./packages/cli/src/index.js"],
-      "@effect/contentlayer-cli/*": ["./packages/cli/src/*.js"],
-      "@effect/contentlayer-cli/test/*": ["./packages/cli/test/*.js"],
-      "@effect/contentlayer-core": ["./packages/core/src/index.js"],
-      "@effect/contentlayer-core/*": ["./packages/core/src/*.js"],
-      "@effect/contentlayer-core/test/*": ["./packages/core/test/*.js"]
+      "@effect/contentlayer": ["./packages/core/src/index.js"],
+      "@effect/contentlayer/*": ["./packages/core/src/*.js"],
+      "@effect/contentlayer/test/*": ["./packages/core/test/*.js"]
     }
   }
 }
