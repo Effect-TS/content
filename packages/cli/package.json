@@ -4,6 +4,9 @@
   "type": "module",
   "license": "MIT",
   "description": "",
+  "bin": {
+    "contentlayer": "./dist/cjs/bin.js"
+  },
   "repository": {
     "type": "git",
     "url": "",
