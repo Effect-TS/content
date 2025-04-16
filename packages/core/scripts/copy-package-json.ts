@@ -9,7 +9,7 @@ const read = Effect.gen(function*() {
   const entrypoints = (yield* fs.readDirectory("src")).filter((path) => !["index.ts", "bin.ts"].includes(path))
   const exports: Record<string, any> = {
     ".": {
-      types: "./dts/index.d.ts",
+      types: "./index.d.ts",
       import: "./index.mjs",
       default: "./index.js"
     }
@@ -17,7 +17,7 @@ const read = Effect.gen(function*() {
   for (const entrypoint of entrypoints) {
     const name = entrypoint.replace(/\.ts$/, "")
     exports[`./${name}`] = {
-      types: `./dts/${name}.d.ts`,
+      types: `./${name}.d.ts`,
       import: `./${name}.mjs`,
       default: `./${name}.js`
     }
@@ -33,6 +33,8 @@ const read = Effect.gen(function*() {
       contentlayer: "./bin.js"
     },
     main: "./index.js",
+    types: "./index.d.ts",
+    module: "./index.mjs",
     exports,
     engines: json.engines,
     repository: json.repository,
