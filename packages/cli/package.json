@@ -10,7 +10,6 @@
     "directory": "packages/cli"
   },
   "scripts": {
-    "codegen": "build-utils prepare-v2",
     "build": "pnpm build-esm && pnpm build-annotate && pnpm build-cjs && build-utils pack-v2",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
@@ -21,12 +20,11 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@effect/cli": "^0.40.1",
+    "@effect/cli": "^0.59.10",
     "@effect/contentlayer-core": "workspace:^",
-    "@effect/experimental": "^0.21.1",
-    "@effect/platform": "^0.61.1",
-    "@effect/platform-node": "^0.56.1",
-    "@effect/schema": "^0.70.0",
-    "effect": "^3.6.0"
+    "@effect/experimental": "^0.44.10",
+    "@effect/platform": "^0.80.10",
+    "@effect/platform-node": "^0.76.19",
+    "effect": "^3.14.10"
   }
 }

@@ -1,7 +1,11 @@
 import * as Command from "@effect/cli/Command"
 import * as Options from "@effect/cli/Options"
-import { ConfigBuilder } from "@effect/contentlayer-core/ConfigBuilder"
+import * as ConfigBuilder from "@effect/contentlayer-core/ConfigBuilder"
+import { ContentCache } from "@effect/contentlayer-core/ContentCache"
+import * as DocumentBuilder from "@effect/contentlayer-core/DocumentBuilder"
+import * as DocumentStorage from "@effect/contentlayer-core/DocumentStorage"
 import { BuildOptions } from "@effect/contentlayer-core/Esbuild"
+import { WatchMode } from "@effect/contentlayer-core/References"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -21,27 +25,36 @@ const watchMode = Options.boolean("watch", { aliases: ["w"] }).pipe(
     "Enable watch mode which will watch the file system for changes " +
       "and rebuild when your configuration changes"
   ),
-  Options.withFallbackConfig(Config.string("watchMode"))
+  Options.withFallbackConfig(Config.boolean("watchMode"))
 )
 
 const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
   Command.withHandler(() =>
     Effect.log("Starting Contentlayer...").pipe(
-      Effect.zipRight(Effect.never)
+      Effect.zipRight(DocumentBuilder.run)
     )
   ),
-  Command.provide(({ configPath }) =>
-    ConfigBuilder.Live.pipe(
-      Layer.provide(BuildOptions.Live({
-        bundle: true,
-        entryNames: "[name]-[hash]",
-        entryPoints: [configPath],
-        format: "cjs",
-        logLevel: "silent",
-        metafile: true,
-        outfile: ".contentlayer/compiled-contentlayer-config",
-        platform: "node"
-      }))
+  Command.provide(({ configPath, watchMode }) =>
+    Layer.provideMerge(
+      Layer.mergeAll(
+        ContentCache.Default,
+        ConfigBuilder.ConfigBuilder.Live,
+        DocumentStorage.DocumentStorage.Default,
+        DocumentBuilder.ContentWorkerPool.Default
+      ),
+      Layer.mergeAll(
+        BuildOptions.Live({
+          bundle: false,
+          entryNames: "[name]-[hash]",
+          entryPoints: [configPath],
+          format: "cjs",
+          logLevel: "silent",
+          metafile: true,
+          outfile: ".contentlayer/compiled-contentlayer-config",
+          platform: "node"
+        }),
+        Layer.succeed(WatchMode, watchMode)
+      )
     )
   )
 )

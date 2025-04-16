@@ -1,16 +1,19 @@
-import type * as Schema from "@effect/schema/Schema"
+/**
+ * @since 1.0.0
+ */
 import type * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import type { Pipeable } from "effect/Pipeable"
+import * as Schema from "effect/Schema"
 import type { Invariant } from "effect/Types"
-import type * as Source from "./Source.js"
+import type * as Source from "./Source.ts"
 
 export const TypeId: unique symbol = Symbol.for("@effect/content/Document")
 
 export type TypeId = typeof TypeId
 
 export interface Document<
-  in out Fields,
+  in out Fields extends Schema.Struct.Fields,
   in out Source extends Source.Source.Any
 > extends Document.Proto<Fields, Source> {
   /**
@@ -28,7 +31,7 @@ export interface Document<
   /**
    * The fields schema for the document.
    */
-  readonly fields: Schema.Struct.Fields
+  readonly fields: Schema.Struct<Fields>
   /**
    * The computed fields for the document.
    *
@@ -48,13 +51,13 @@ export interface Document<
 
 export declare namespace Document {
   export interface Proto<
-    in out Fields,
+    in out Fields extends Schema.Struct.Fields,
     in out Source extends Source.Source.Any
   > extends Pipeable {
     readonly [TypeId]: VarianceStruct<Fields>
 
     readonly addComputedFields: <ComputedFieldSchemas extends Record<string, Schema.Schema.Any>>(
-      fields: ExcludeDuplicates<ComputedFieldSchemas, Fields, Source.Source.Meta<Source>>
+      fields: ExcludeDuplicates<ComputedFieldSchemas, Fields, Source.Source.Success<Source>>
     ) => Document<Schema.Simplify<MergeComputedFields<Fields, ComputedFieldSchemas>>, Source>
   }
 
@@ -62,14 +65,33 @@ export declare namespace Document {
     readonly _Fields: Invariant<Fields>
   }
 
-  export type Any = Document<any, any>
+  export interface Any {
+    readonly [TypeId]: any
+    readonly name: string
+  }
 
-  export type ExcludeDuplicates<ComputedFieldSchemas extends Record<string, Schema.Schema.Any>, Fields, SourceMeta> = {
-    [Name in keyof ComputedFieldSchemas]: Name extends (keyof Fields & string) ? "ERROR: I hate my mouse" :
+  export interface AnyWithProps {
+    readonly [TypeId]: any
+    readonly name: string
+    readonly fields: Schema.Schema.Any
+    readonly source: Source.Source.Any
+    readonly computedFields: ReadonlyArray<ReadonlyArray<AnyComputedField & { readonly name: string }>>
+  }
+
+  export type Source<Doc extends Any> = Doc extends Document<infer _Fields, infer _Source> ? _Source : never
+
+  export type Fields<Doc extends Any> = Doc extends Document<infer _Fields, infer _Source> ? _Fields : never
+
+  export type ExcludeDuplicates<
+    ComputedFieldSchemas extends Record<string, Schema.Schema.Any>,
+    Fields extends Schema.Struct.Fields,
+    Output extends Source.Output.Any
+  > = {
+    [Name in keyof ComputedFieldSchemas]: Name extends (keyof Fields & string) ? `Duplicate field: ${Name}` :
       ComputedField<
         Fields,
         ComputedFieldSchemas[Name],
-        SourceMeta
+        Output
       >
   }
 
@@ -82,16 +104,21 @@ export declare namespace Document {
   export type AnyComputedField = ComputedField<any, any, any>
 
   export interface ComputedField<
-    Fields,
+    Fields extends Schema.Struct.Fields,
     ResolverSchema extends Schema.Schema.Any,
-    SourceMeta
+    Output extends Source.Output.Any
   > {
     readonly description?: string
     readonly schema: ResolverSchema
     readonly resolve: (
-      fields: Fields,
-      meta: SourceMeta
+      fields: Schema.Simplify<Schema.Struct.Type<Fields>>,
+      output: Output
     ) => Effect.Effect<Schema.Schema.Type<ResolverSchema>>
+  }
+
+  export interface Output<Document extends Any> {
+    readonly meta: Source.Source.Meta<Document.Source<Document>>
+    readonly fields: Schema.Schema.Type<Document.Fields<Document>>
   }
 }
 
@@ -107,7 +134,7 @@ const Proto = {
       name: this.name,
       description: this.description,
       source: this.source,
-      fields: this.fields,
+      fields: this.fields as any,
       computedFields: [...this.computedFields, computedFields]
     })
   }
@@ -117,12 +144,12 @@ const makeInternal = (options: {
   readonly name: string
   readonly description: Option.Option<string>
   readonly source: Source.Source.Any
-  readonly fields: Schema.Struct.Fields
+  readonly fields: Schema.Struct<any>
   readonly computedFields: ReadonlyArray<ReadonlyArray<Document.AnyComputedField & { readonly name: string }>>
 }) =>
   Object.assign(Object.create(Proto), {
     name: options.name,
-    description: Option.fromNullable(options.description),
+    description: options.description,
     source: options.source,
     fields: options.fields,
     computedFields: options.computedFields
@@ -136,11 +163,18 @@ export const make = <
   readonly description?: string
   readonly source: Source
   readonly fields: Fields
-}): Document<Schema.Simplify<Schema.Struct.Type<Fields>>, Source> =>
+}): Document<Fields, Source> =>
   makeInternal({
-    name: options.name,
+    name: validateDocumentName(options.name),
     description: Option.fromNullable(options.description),
     source: options.source,
-    fields: options.fields,
+    fields: Schema.Struct(options.fields),
     computedFields: []
   })
+
+const validateDocumentName = (name: string) => {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Document name "${name}" is not a valid variable name`)
+  }
+  return name
+}

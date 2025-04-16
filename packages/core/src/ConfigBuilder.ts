@@ -1,69 +1,36 @@
+/**
+ * @since 1.0.0
+ */
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
+import * as NodePath from "@effect/platform-node/NodePath"
 import * as FileSystem from "@effect/platform/FileSystem"
-import type * as Path from "@effect/platform/Path"
-import * as Array from "effect/Array"
-import * as Console from "effect/Console"
+import * as Path from "@effect/platform/Path"
+import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 import { identity } from "effect/Function"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
-import * as Queue from "effect/Queue"
 import * as Stream from "effect/Stream"
 import * as SubscriptionRef from "effect/SubscriptionRef"
+import * as Module from "node:module"
 import * as VM from "node:vm"
-import * as Config from "./Config.js"
-import type { EsbuildSuccess } from "./Esbuild.js"
-import { Esbuild } from "./Esbuild.js"
+import * as Config from "./Config.ts"
+import { ContentlayerError } from "./ContentlayerError.ts"
+import type { EsbuildSuccess } from "./Esbuild.ts"
+import { Esbuild } from "./Esbuild.ts"
 
-// contentlayer.config.ts
-//
-// const Author = Schema.Struct({
-//   name: Schema.NonEmptyString,
-//   twitter: Schema.optional(Schema.String)
-// })
-//
-// const Post = make({
-//   name: "Post",
-//   description: "The posts",
-//   source: Source.fileSystem({ path: "content/posts/**/*.mdx?" }),
-//   fields: {
-//     title: Schema.NonEmptyString,
-//     author: Author
-//   }
-// }).addComputedFields({
-//   slug: {
-//     description: "The title slug",
-//     schema: Schema.NonEmptyString,
-//     resolve: (fields) => Effect.succeed(fields.title.slice(0, 5))
-//   },
-//   slug2: {
-//     description: "The title slug",
-//     schema: Schema.NonEmptyString,
-//     resolve: (fields) => Effect.succeed(fields.title.slice(0, 5))
-//   }
-// }).addComputedFields({
-//   slug3: {
-//     description: "The title slug",
-//     schema: Schema.Number,
-//     resolve: () => Effect.succeed(1)
-//   }
-// })
-//
-// export default Config.make({
-//   documents: [Post]
-// })
-//
-//
-// compiled-contentlayer-config-[HASH].mjs
-
+/**
+ * @since 1.0.0
+ * @category constructors
+ */
 export const make = Effect.gen(function*() {
-  const results = yield* Esbuild.results
-  const config = yield* SubscriptionRef.make(Option.none<Config.Config>())
+  const esbuild = yield* Esbuild
+  const config = yield* SubscriptionRef.make(Option.none<BuiltConfig>())
 
-  yield* Queue.take(results).pipe(
+  yield* esbuild.results.take.pipe(
     Effect.flatten,
     Effect.flatMap(build),
     Effect.flatMap((latest) => SubscriptionRef.set(config, latest)),
-    // TODO: log nice messages for the user
     Effect.catchAllCause(Effect.logError),
     Effect.forever,
     Effect.forkScoped
@@ -71,50 +38,96 @@ export const make = Effect.gen(function*() {
 
   return {
     config: config.changes.pipe(
-      Stream.filterMap(identity)
+      Stream.filterMap(identity),
+      Stream.debounce("200 millis")
     )
   } as const
 })
 
-export class ConfigBuilder extends Effect.Tag("@effect/content/core/ConfigBuilder")<
+/**
+ * @since 1.0.0
+ * @category models
+ */
+export interface BuiltConfig {
+  readonly hash: string
+  readonly config: Config.Config
+  readonly path: string
+  readonly entrypoint: string
+}
+
+export class ConfigBuilder extends Effect.Tag("@effect/contentlayer-core/ConfigBuilder")<
   ConfigBuilder,
   Effect.Effect.Success<typeof make>
 >() {
   static Live = Layer.scoped(this, make).pipe(
-    Layer.provide(Esbuild.Live)
+    Layer.provide(Esbuild.Live),
+    Layer.provide(NodeFileSystem.layer),
+    Layer.provide(NodePath.layer)
   )
 }
 
 const ESBUILD_HASH_REGEX = /compiled-contentlayer-config-(.+)$/
-const COMPILED_CONTENTLAYER_CONFIG_REGEX = /compiled-contentlayer-config-.+$/
+const configAsOption = Option.liftPredicate(Config.isConfig)
 
 const build = (
   result: EsbuildSuccess
-): Effect.Effect<Option.Option<Config.Config>, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  Option.Option<BuiltConfig>,
+  ContentlayerError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function*() {
-    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
 
-    const outfilePath = yield* Option.fromNullable(result.metafile).pipe(
-      Option.map((metafile) => Object.keys(metafile.outputs)),
-      Option.flatMap(Array.findFirst((filePath) => COMPILED_CONTENTLAYER_CONFIG_REGEX.test(filePath))),
+    const [outfilePath, output] = yield* Option.fromNullable(result.metafile).pipe(
+      Option.flatMapNullable((metafile) => Object.entries(metafile.outputs)[0]),
       Effect.orDie
     )
 
     const esbuildHash = yield* Option.fromNullable(outfilePath.match(ESBUILD_HASH_REGEX)).pipe(
-      Option.flatMap(Array.get(1)),
+      Option.flatMap(Arr.get(1)),
       Effect.orDie
     )
-
-    const content = yield* Effect.orDie(fs.readFileString(outfilePath))
-
-    const context = VM.createContext(globalThis)
-    context.module = { exports: {} }
-    context.exports = context.module.exports
-
-    yield* Effect.sync(() => VM.runInContext(content, context))
-
-    yield* Console.dir(context.module.exports.default, { depth: null, colors: true })
-    yield* Console.log(esbuildHash)
-
-    return Option.some(Config.make({ documents: [] }))
+    return yield* fromPath(outfilePath, path.resolve(output.entryPoint!), esbuildHash)
   })
+
+/**
+ * @since 1.0.0
+ * @category constructors
+ */
+export const fromPath = Effect.fnUntraced(function*(
+  outPath: string,
+  entrypoint: string,
+  hash: string
+) {
+  const fs = yield* FileSystem.FileSystem
+
+  const content = yield* Effect.orDie(fs.readFileString(outPath))
+
+  const context = VM.createContext({
+    ...globalThis
+  })
+  context.require = Module.createRequire(entrypoint)
+  context.module = { exports: {} }
+  context.exports = context.module.exports
+
+  yield* Effect.try({
+    try: () => VM.runInContext(content, context),
+    catch: (cause) =>
+      new ContentlayerError({
+        module: "ConfigBuilder",
+        method: "fromPath",
+        description: "Error evaluating config",
+        cause
+      })
+  })
+
+  return configAsOption(context.module.exports.default).pipe(
+    Option.map((config): BuiltConfig => ({
+      hash,
+      config,
+      path: outPath,
+      entrypoint
+    }))
+  )
+})

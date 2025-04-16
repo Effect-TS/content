@@ -36,6 +36,9 @@
     "incremental": true,
     "removeComments": false,
     "plugins": [{ "name": "@effect/language-service" }],
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
     "paths": {
       "@effect/contentlayer-cli": ["./packages/cli/src/index.js"],
       "@effect/contentlayer-cli/*": ["./packages/cli/src/*.js"],

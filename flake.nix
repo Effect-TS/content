@@ -11,9 +11,7 @@
     devShells = forAllSystems (pkgs: {
       default = pkgs.mkShell {
         packages = with pkgs; [
-          bun
           corepack
-          deno
           nodejs
         ];
       };
