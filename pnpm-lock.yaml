@@ -139,7 +139,7 @@ importers:
         version: 0.59.10(@effect/platform@0.80.10(effect@3.14.10))(@effect/printer-ansi@0.42.10(@effect/typeclass@0.33.10(effect@3.14.10))(effect@3.14.10))(@effect/printer@0.42.10(@effect/typeclass@0.33.10(effect@3.14.10))(effect@3.14.10))(effect@3.14.10)
       '@effect/contentlayer-core':
         specifier: workspace:^
-        version: link:../core
+        version: link:../core/dist
       '@effect/experimental':
         specifier: ^0.44.10
         version: 0.44.10(@effect/platform@0.80.10(effect@3.14.10))(effect@3.14.10)
@@ -152,6 +152,7 @@ importers:
       effect:
         specifier: ^3.14.10
         version: 3.14.10
+    publishDirectory: dist
 
   packages/core:
     dependencies:
@@ -219,6 +220,7 @@ importers:
       remark-stringify:
         specifier: ^11.0.0
         version: 11.0.0
+    publishDirectory: dist
 
 packages:
 
