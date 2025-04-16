@@ -4,6 +4,10 @@
   "type": "module",
   "license": "MIT",
   "description": "",
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
   "bin": {
     "contentlayer": "./dist/cjs/bin.js"
   },
