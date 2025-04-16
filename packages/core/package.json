@@ -21,10 +21,10 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@effect/platform": "^0.80.7",
-    "@effect/platform-node": "^0.76.12",
-    "@effect/rpc": "^0.55.10",
-    "effect": "^3.14.7",
+    "@effect/platform": "^0.80.10",
+    "@effect/platform-node": "^0.76.19",
+    "@effect/rpc": "^0.55.14",
+    "effect": "^3.14.10",
     "esbuild": "^0.25.2",
     "glob": "^11.0.1",
     "minimatch": "^10.0.1",
