@@ -9,7 +9,7 @@
     "directory": "dist"
   },
   "bin": {
-    "contentlayer": "./dist/cjs/bin.js"
+    "contentlayer": "./dist/esm/bin.js"
   },
   "repository": {
     "type": "git",
