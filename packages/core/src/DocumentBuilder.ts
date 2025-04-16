@@ -136,20 +136,20 @@ export const run = Effect.gen(function*() {
             Stream.mapEffect(
               Effect.fnUntraced(
                 function*({ document, event, output }) {
-                  if (event.initial && cache.exists(output.id, output.version)) {
-                    return
+                  const cached = event.initial && cache.exists(output.id, output.version)
+                  if (!cached) {
+                    yield* worker.ProcessDocument({
+                      configPath: new ContentWorkerSchema.ConfigPath({
+                        path: config.path,
+                        entrypoint: config.entrypoint
+                      }),
+                      name: document.name,
+                      id: output.id,
+                      meta: output.meta
+                    })
+                    yield* cache.add(output.id, output.version)
+                    builtDocumentCount++
                   }
-                  yield* worker.ProcessDocument({
-                    configPath: new ContentWorkerSchema.ConfigPath({
-                      path: config.path,
-                      entrypoint: config.entrypoint
-                    }),
-                    name: document.name,
-                    id: output.id,
-                    meta: output.meta
-                  })
-                  yield* cache.add(output.id, output.version)
-                  builtDocumentCount++
 
                   let documentIds = idMap.get(document.name)
                   if (!documentIds) {
