@@ -44,7 +44,9 @@ const read = Effect.gen(function*() {
     bugs: json.bugs,
     homepage: json.homepage,
     tags: json.tags,
-    keywords: json.keywords
+    keywords: json.keywords,
+    dependencies: json.dependencies,
+    peerDependencies: json.peerDependencies
   }
 })
 
