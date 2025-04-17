@@ -3,16 +3,24 @@
   "version": "0.0.0",
   "license": "MIT",
   "type": "module",
-  "description": "",
-  "publishConfig": {
-    "access": "public",
-    "directory": "dist"
-  },
+  "description": "Turn your content into a type-safe data structure.",
+  "homepage": "https://effect.website",
   "repository": {
     "type": "git",
-    "url": "",
+    "url": "https://github.com/Effect-TS/content.git",
     "directory": "packages/core"
   },
+  "bugs": {
+    "url": "https://github.com/Effect-TS/content/issues"
+  },
+  "tags": [
+    "typescript",
+    "content"
+  ],
+  "keywords": [
+    "typescript",
+    "content"
+  ],
   "scripts": {
     "codegen": "build-utils prepare-v2",
     "build": "tsup && pnpm build:dts && pnpm build:package",
