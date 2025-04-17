@@ -8,7 +8,6 @@ import * as Mailbox from "effect/Mailbox"
 import type * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
 import type * as Unified from "unified"
-import type * as Unist from "unist"
 import * as Remove from "unist-util-remove"
 import type { VFile } from "vfile"
 import { ContentlayerError } from "./ContentlayerError.ts"
@@ -108,20 +107,11 @@ export class UnifiedOutput extends Context.Tag("@effect/contentlayer/SourcePlugi
  * @category unified
  */
 export const unified = <
-  ParseTree extends Unist.Node,
-  HeadTree extends Unist.Node,
-  TailTree extends Unist.Node,
-  CompileTree extends Unist.Node,
-  Out extends Unified.CompileResults,
   EX = never
 >(options: {
   readonly processor:
-    | Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>
-    | Effect.Effect<
-      Unified.Processor<ParseTree, HeadTree, TailTree, CompileTree, Out>,
-      EX,
-      Source.Source.Provided | Scope.Scope
-    >
+    | Unified.Processor
+    | Effect.Effect<Unified.Processor, EX, Source.Source.Provided | Scope.Scope>
   readonly extractFields?: ((vfile: VFile) => Record<string, any>) | undefined
 }): <Meta, In, E>(
   source: Source.Source<Meta, In, E>
