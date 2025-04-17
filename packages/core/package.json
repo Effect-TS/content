@@ -21,6 +21,10 @@
     "typescript",
     "content"
   ],
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
   "scripts": {
     "codegen": "build-utils prepare-v2",
     "build": "tsup && pnpm build:dts && pnpm build:package",
