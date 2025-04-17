@@ -55,7 +55,7 @@ export interface BuiltConfig {
   readonly entrypoint: string
 }
 
-export class ConfigBuilder extends Effect.Tag("@effect/contentlayer-core/ConfigBuilder")<
+export class ConfigBuilder extends Effect.Tag("@effect/contentlayer/ConfigBuilder")<
   ConfigBuilder,
   Effect.Effect.Success<typeof make>
 >() {

@@ -23,7 +23,7 @@ import { WatchMode } from "./References.ts"
  * @since 1.0.0
  * @category symbols
  */
-export const TypeId: unique symbol = Symbol.for("@effect/contentlayer-core/Source")
+export const TypeId: unique symbol = Symbol.for("@effect/contentlayer/Source")
 
 /**
  * @since 1.0.0
@@ -52,7 +52,7 @@ const SourceProto: Omit<Source<any, any, any>, "events" | "metaSchema"> = {
  * @since 1.0.0
  * @category WorkerEventStream
  */
-export class WorkerEventStream extends Context.Tag("@effect/contentlayer-core/Source/WorkerEventStream")<
+export class WorkerEventStream extends Context.Tag("@effect/contentlayer/Source/WorkerEventStream")<
   WorkerEventStream,
   Stream.Stream<WorkerEvent>
 >() {}
@@ -179,7 +179,7 @@ export declare namespace Source {
  * @since 1.0.0
  * @category output
  */
-export const OutputTypeId: unique symbol = Symbol.for("@effect/contentlayer-core/Source/Output")
+export const OutputTypeId: unique symbol = Symbol.for("@effect/contentlayer/Source/Output")
 
 /**
  * @since 1.0.0

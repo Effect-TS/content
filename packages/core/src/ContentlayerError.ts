@@ -11,7 +11,7 @@ import * as Schema from "effect/Schema"
  * @since 1.0.0
  * @category type ids
  */
-export const TypeId: unique symbol = Symbol.for("@effect/contentlayer-core/ContentlayerError")
+export const TypeId: unique symbol = Symbol.for("@effect/contentlayer/ContentlayerError")
 
 /**
  * @since 1.0.0
@@ -24,7 +24,7 @@ export type TypeId = typeof TypeId
  * @category models
  */
 export class ContentlayerError
-  extends Schema.TaggedError<ContentlayerError>("@effect/contentlayer-core/ContentlayerError")("ContentlayerError", {
+  extends Schema.TaggedError<ContentlayerError>("@effect/contentlayer/ContentlayerError")("ContentlayerError", {
     module: Schema.String,
     method: Schema.String,
     description: Schema.String,

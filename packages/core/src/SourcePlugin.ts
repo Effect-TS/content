@@ -7,14 +7,7 @@ import { constTrue } from "effect/Function"
 import * as Mailbox from "effect/Mailbox"
 import type * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
-import rehypeFormat from "rehype-format"
-import rehypeStringify from "rehype-stringify"
-import remarkFrontmatter from "remark-frontmatter"
-import remarkParse from "remark-parse"
-import remarkParseFrontmatter from "remark-parse-frontmatter"
-import remarkRehype from "remark-rehype"
-import remarkStringify from "remark-stringify"
-import * as Unified from "unified"
+import type * as Unified from "unified"
 import type * as Unist from "unist"
 import * as Remove from "unist-util-remove"
 import type { VFile } from "vfile"
@@ -25,7 +18,7 @@ import * as Source from "./Source.ts"
  * @since 1.0.0
  * @category References
  */
-export class Enabled extends Context.Reference<Enabled>()("@effect/contentlayer-core/SourcePlugin/Enabled", {
+export class Enabled extends Context.Reference<Enabled>()("@effect/contentlayer/SourcePlugin/Enabled", {
   defaultValue: constTrue
 }) {}
 
@@ -89,12 +82,28 @@ export const make = <E2, Meta, Context, Context2>(
  * @since 1.0.0
  * @category unified
  */
-export class UnifiedOutput extends Context.Tag("@effect/contentlayer-core/SourcePlugin/UnifiedOutput")<
+export class UnifiedOutput extends Context.Tag("@effect/contentlayer/SourcePlugin/UnifiedOutput")<
   UnifiedOutput,
   VFile
 >() {}
 
 /**
+ * A plugin for processing content using the unified library.
+ *
+ * ```ts
+ * import { SourcePlugin } from "@effect/contentlayer"
+ * import { unified } from "unified"
+ *
+ * SourcePlugin.unified({
+ *   processor: unified()
+ *     .use(remarkParse)
+ *     .use(remarkStringify)
+ *     .use(remarkFrontmatter)
+ *     .use(remarkParseFrontmatter)
+ *     .use(SourcePlugin.unifiedRemoveYaml)
+ * })
+ * ```
+ *
  * @since 1.0.0
  * @category unified
  */
@@ -113,35 +122,37 @@ export const unified = <
       EX,
       Source.Source.Provided | Scope.Scope
     >
-  readonly extractFields: (vfile: VFile) => Record<string, any>
+  readonly extractFields?: ((vfile: VFile) => Record<string, any>) | undefined
 }): <Meta, In, E>(
   source: Source.Source<Meta, In, E>
 ) => Source.Source<Meta, In | UnifiedOutput, E | EX | ContentlayerError> =>
-  make((stream) =>
-    Effect.gen(function*() {
-      const processor = Effect.isEffect(options.processor) ? yield* options.processor : options.processor
-      return Stream.mapEffect(stream, (output) =>
-        output.content.pipe(
-          Effect.tryMapPromise({
-            try: (content) => processor.process(content),
-            catch: (cause) =>
-              new ContentlayerError({
-                module: "SourcePlugin",
-                method: "unified",
-                description: "Error processing content",
-                cause
-              })
-          }),
-          Effect.map((vfile) =>
-            output
-              .addContext(UnifiedOutput, vfile)
-              .addFields(options.extractFields(vfile))
-          )
-        ))
-    }).pipe(Stream.unwrapScoped)
-  )
+  make(Effect.fnUntraced(function*(stream) {
+    const processor = Effect.isEffect(options.processor) ? yield* options.processor : options.processor
+    return Stream.mapEffect(stream, (output) =>
+      output.content.pipe(
+        Effect.tryMapPromise({
+          try: (content) => processor.process(content),
+          catch: (cause) =>
+            new ContentlayerError({
+              module: "SourcePlugin",
+              method: "unified",
+              description: "Error processing content",
+              cause
+            })
+        }),
+        Effect.map((vfile) =>
+          output
+            .addContext(UnifiedOutput, vfile)
+            .addFields((options.extractFields ?? unifiedDefaultFields)(vfile))
+        )
+      ))
+  }, Stream.unwrapScoped))
 
-const removeYaml: Unified.Plugin = () => (tree) => {
+/**
+ * @since 1.0.0
+ * @category unified
+ */
+export const unifiedRemoveYaml: Unified.Plugin = () => (tree) => {
   Remove.remove(tree, "yaml")
 }
 
@@ -149,37 +160,8 @@ const removeYaml: Unified.Plugin = () => (tree) => {
  * @since 1.0.0
  * @category unified
  */
-export const unifiedRemark = unified({
-  processor: Unified.unified()
-    .use(remarkParse)
-    .use(remarkStringify)
-    .use(remarkFrontmatter)
-    .use(remarkParseFrontmatter)
-    .use(removeYaml),
-  extractFields: (vfile) => ({
-    ...vfile.data,
-    ...vfile.data?.frontmatter as any,
-    body: vfile.value
-  })
-})
-
-/**
- * @since 1.0.0
- * @category unified
- */
-export const unifiedRemarkRehype = unified({
-  processor: Unified.unified()
-    .use(remarkParse)
-    .use(remarkStringify)
-    .use(remarkFrontmatter)
-    .use(remarkParseFrontmatter)
-    .use(removeYaml)
-    .use(remarkRehype)
-    .use(rehypeFormat)
-    .use(rehypeStringify),
-  extractFields: (vfile) => ({
-    ...vfile.data,
-    ...vfile.data?.frontmatter as any,
-    body: vfile.value
-  })
+export const unifiedDefaultFields = (vfile: VFile): Record<string, any> => ({
+  ...vfile.data,
+  ...vfile.data?.frontmatter as any,
+  body: vfile.value
 })

@@ -204,7 +204,7 @@ export const run = Effect.gen(function*() {
  * @category ContentWorkerPool
  */
 export class ContentWorkerPool
-  extends Effect.Service<ContentWorkerPool>()("@effect/contentlayer-core/DocumentBuilder/ContentWorkerPool", {
+  extends Effect.Service<ContentWorkerPool>()("@effect/contentlayer/DocumentBuilder/ContentWorkerPool", {
     scoped: RpcClient.make(ContentWorkerSchema.Rpcs),
     dependencies: [
       RpcClient.layerProtocolWorker({

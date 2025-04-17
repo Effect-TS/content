@@ -26,7 +26,7 @@ interface CacheOutput {
  * @since 1.0.0
  * @category Services
  */
-export class ContentCache extends Effect.Service<ContentCache>()("@effect/contentlayer-core/ContentCache", {
+export class ContentCache extends Effect.Service<ContentCache>()("@effect/contentlayer/ContentCache", {
   dependencies: [NodeFileSystem.layer, NodePath.layer],
   scoped: Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem

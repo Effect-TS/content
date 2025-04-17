@@ -35,7 +35,7 @@ export const PersistedDocument = <A, I, R>(fields: Schema.Schema<A, I, R>) => {
 }
 
 const persistedDocumentCache = globalValue(
-  "@effect/contentlayer-core/DocumentStorage/persistedDocumentCache",
+  "@effect/contentlayer/DocumentStorage/persistedDocumentCache",
   () => new WeakMap<any, Schema.Schema.Any>()
 )
 
@@ -43,7 +43,7 @@ const persistedDocumentCache = globalValue(
  * @since 1.0.0
  * @category services
  */
-export class DocumentStorage extends Effect.Service<DocumentStorage>()("@effect/contentlayer-core/DocumentStorage", {
+export class DocumentStorage extends Effect.Service<DocumentStorage>()("@effect/contentlayer/DocumentStorage", {
   effect: Effect.gen(function*() {
     const fs = yield* FileSystem
     const path_ = yield* Path
