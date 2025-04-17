@@ -110,8 +110,8 @@ export const unified = <
   EX = never
 >(options: {
   readonly processor:
-    | Unified.Processor
-    | Effect.Effect<Unified.Processor, EX, Source.Source.Provided | Scope.Scope>
+    | Unified.Processor<any, any, any, any, any>
+    | Effect.Effect<Unified.Processor<any, any, any, any, any>, EX, Source.Source.Provided | Scope.Scope>
   readonly extractFields?: ((vfile: VFile) => Record<string, any>) | undefined
 }): <Meta, In, E>(
   source: Source.Source<Meta, In, E>
