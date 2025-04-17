@@ -7,7 +7,6 @@ import { constTrue } from "effect/Function"
 import * as Mailbox from "effect/Mailbox"
 import type * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
-import type * as Unified from "unified"
 import * as Remove from "unist-util-remove"
 import type { VFile } from "vfile"
 import { ContentlayerError } from "./ContentlayerError.ts"
@@ -110,8 +109,8 @@ export const unified = <
   EX = never
 >(options: {
   readonly processor:
-    | Unified.Processor<any, any, any, any, any>
-    | Effect.Effect<Unified.Processor<any, any, any, any, any>, EX, Source.Source.Provided | Scope.Scope>
+    | UnifiedProcessor
+    | Effect.Effect<UnifiedProcessor, EX, Source.Source.Provided | Scope.Scope>
   readonly extractFields?: ((vfile: VFile) => Record<string, any>) | undefined
 }): <Meta, In, E>(
   source: Source.Source<Meta, In, E>
@@ -142,7 +141,15 @@ export const unified = <
  * @since 1.0.0
  * @category unified
  */
-export const unifiedRemoveYaml: Unified.Plugin = () => (tree) => {
+export interface UnifiedProcessor {
+  process(...args: ReadonlyArray<any>): Promise<any>
+}
+
+/**
+ * @since 1.0.0
+ * @category unified
+ */
+export const unifiedRemoveYaml = () => (tree: any) => {
   Remove.remove(tree, "yaml")
 }
 
