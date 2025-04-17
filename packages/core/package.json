@@ -1,6 +1,6 @@
 {
   "name": "@effect/contentlayer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "type": "module",
   "description": "Turn your content into a type-safe data structure.",
