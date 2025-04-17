@@ -101,12 +101,15 @@ export const fromPath = Effect.fnUntraced(function*(
   hash: string
 ) {
   const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
 
   const content = yield* Effect.orDie(fs.readFileString(outPath))
 
   const context = VM.createContext({
     ...globalThis,
-    process
+    process,
+    __filename: outPath,
+    __dirname: path.dirname(outPath)
   })
   context.require = Module.createRequire(entrypoint)
   context.module = { exports: {} }
