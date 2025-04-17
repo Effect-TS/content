@@ -1,5 +1,11 @@
 # @effect/contentlayer
 
+## 0.1.3
+
+### Patch Changes
+
+- [`4bc8985`](https://github.com/Effect-TS/content/commit/4bc89857fa1408af6db2750d18ea2cf484d823f8) Thanks [@tim-smart](https://github.com/tim-smart)! - run esbuild in bundle mode
+
 ## 0.1.2
 
 ### Patch Changes
