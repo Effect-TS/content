@@ -44,11 +44,10 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
       ),
       Layer.mergeAll(
         BuildOptions.Live({
-          bundle: true,
-          external: ["@effect/contentlayer", "effect"],
+          bundle: false,
           entryNames: "[name]-[hash]",
           entryPoints: [configPath],
-          format: "cjs",
+          format: "esm",
           logLevel: "silent",
           metafile: true,
           outfile: ".contentlayer/compiled-contentlayer-config",

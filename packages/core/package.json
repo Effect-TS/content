@@ -39,7 +39,11 @@
   },
   "dependencies": {
     "@parcel/watcher": "^2.5.1",
-    "esbuild": "^0.25.2"
+    "esbuild": "^0.25.2",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "effect": "^3.14"
   },
   "devDependencies": {
     "@effect/cli": "^0.59.10",
@@ -51,7 +55,6 @@
     "glob": "^11.0.1",
     "minimatch": "^10.0.1",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.3",
     "unist-util-remove": "^4.0.0",
     "vfile": "^6.0.3"
   }

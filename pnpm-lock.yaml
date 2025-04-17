@@ -140,6 +140,9 @@ importers:
       esbuild:
         specifier: ^0.25.2
         version: 0.25.2
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
     devDependencies:
       '@effect/cli':
         specifier: ^0.59.10
@@ -168,9 +171,6 @@ importers:
       tsup:
         specifier: ^8.4.0
         version: 8.4.0(postcss@8.5.3)(tsx@4.19.3)(typescript@5.8.3)(yaml@2.7.1)
-      typescript:
-        specifier: ^5.8.3
-        version: 5.8.3
       unist-util-remove:
         specifier: ^4.0.0
         version: 4.0.0

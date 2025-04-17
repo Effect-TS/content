@@ -10,16 +10,16 @@ const read = Effect.gen(function*() {
   const exports: Record<string, any> = {
     ".": {
       types: "./index.d.ts",
-      import: "./index.mjs",
-      default: "./index.js"
+      import: "./index.js",
+      require: "./index.cjs"
     }
   }
   for (const entrypoint of entrypoints) {
     const name = entrypoint.replace(/\.ts$/, "")
     exports[`./${name}`] = {
       types: `./${name}.d.ts`,
-      import: `./${name}.mjs`,
-      default: `./${name}.js`
+      import: `./${name}.js`,
+      require: `./${name}.cjs`
     }
   }
 
@@ -29,12 +29,13 @@ const read = Effect.gen(function*() {
     name: json.name,
     version: json.version,
     description: json.description,
+    type: "module",
     bin: {
       contentlayer: "./bin.js"
     },
-    main: "./index.js",
+    main: "./index.cjs",
     types: "./index.d.ts",
-    module: "./index.mjs",
+    module: "./index.js",
     exports,
     engines: json.engines,
     repository: json.repository,
@@ -43,7 +44,9 @@ const read = Effect.gen(function*() {
     bugs: json.bugs,
     homepage: json.homepage,
     tags: json.tags,
-    keywords: json.keywords
+    keywords: json.keywords,
+    dependencies: json.dependencies,
+    peerDependencies: json.peerDependencies
   }
 })
 
