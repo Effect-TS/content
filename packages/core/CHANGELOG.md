@@ -1,5 +1,11 @@
 # @effect/contentlayer
 
+## 0.1.6
+
+### Patch Changes
+
+- [`6bbad52`](https://github.com/Effect-TS/content/commit/6bbad52f3e7f63997110ea9729d9c17a307998d6) Thanks [@tim-smart](https://github.com/tim-smart)! - revert to pool auto-scaling
+
 ## 0.1.5
 
 ### Patch Changes
