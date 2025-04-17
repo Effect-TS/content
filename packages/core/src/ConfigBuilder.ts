@@ -1,9 +1,7 @@
 /**
  * @since 1.0.0
  */
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import * as NodePath from "@effect/platform-node/NodePath"
-import * as FileSystem from "@effect/platform/FileSystem"
 import * as Path from "@effect/platform/Path"
 import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
@@ -12,10 +10,8 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Stream from "effect/Stream"
 import * as SubscriptionRef from "effect/SubscriptionRef"
-import * as Module from "node:module"
-import * as VM from "node:vm"
 import * as Config from "./Config.ts"
-import { ContentlayerError } from "./ContentlayerError.ts"
+import { ContentlayerError } from "./ContentlayerError.js"
 import type { EsbuildSuccess } from "./Esbuild.ts"
 import { Esbuild } from "./Esbuild.ts"
 
@@ -61,7 +57,6 @@ export class ConfigBuilder extends Effect.Tag("@effect/contentlayer/ConfigBuilde
 >() {
   static Live = Layer.scoped(this, make).pipe(
     Layer.provide(Esbuild.Live),
-    Layer.provide(NodeFileSystem.layer),
     Layer.provide(NodePath.layer)
   )
 }
@@ -74,7 +69,7 @@ const build = (
 ): Effect.Effect<
   Option.Option<BuiltConfig>,
   ContentlayerError,
-  FileSystem.FileSystem | Path.Path
+  Path.Path
 > =>
   Effect.gen(function*() {
     const path = yield* Path.Path
@@ -100,24 +95,11 @@ export const fromPath = Effect.fnUntraced(function*(
   entrypoint: string,
   hash: string
 ) {
-  const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-
-  const content = yield* Effect.orDie(fs.readFileString(outPath))
   const resolvedPath = path.resolve(outPath)
 
-  const context = VM.createContext({
-    ...globalThis,
-    process,
-    __filename: resolvedPath,
-    __dirname: path.dirname(resolvedPath)
-  })
-  context.require = Module.createRequire(entrypoint)
-  context.module = { exports: {} }
-  context.exports = context.module.exports
-
-  yield* Effect.try({
-    try: () => VM.runInContext(content, context),
+  const content = yield* Effect.tryPromise({
+    try: () => import(new URL(`file://${resolvedPath}`) as any),
     catch: (cause) =>
       new ContentlayerError({
         module: "ConfigBuilder",
@@ -127,7 +109,7 @@ export const fromPath = Effect.fnUntraced(function*(
       })
   })
 
-  return configAsOption(context.module.exports.default).pipe(
+  return configAsOption(content.default).pipe(
     Option.map((config): BuiltConfig => ({
       hash,
       config,
