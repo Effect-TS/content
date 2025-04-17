@@ -79,11 +79,7 @@ export const run = Effect.gen(function*() {
 
           yield* Mailbox.toStream(idMailbox).pipe(
             Stream.debounce(500),
-            Stream.tap(() =>
-              Effect.logInfo(`${getIdCount()} documents built`).pipe(
-                Effect.when(() => watchMode)
-              )
-            ),
+            watchMode ? Stream.tap(() => Effect.logInfo(`${getIdCount()} documents built`)) : identity,
             Stream.flatMap(() =>
               Stream.fromIterable(
                 Iterable.map(idMap, ([documentName, ids]) => [documentName, Array.from(ids)] as const)
@@ -208,10 +204,8 @@ export class ContentWorkerPool
     scoped: RpcClient.make(ContentWorkerSchema.Rpcs),
     dependencies: [
       RpcClient.layerProtocolWorker({
-        minSize: 1,
-        maxSize: workerPoolSize,
-        timeToLive: "30 seconds",
-        concurrency: 3
+        size: workerPoolSize,
+        concurrency: 10
       }).pipe(
         Layer.provide(NodeWorker.layerPlatform(() => tsWorker("./ContentWorker")))
       )
