@@ -1,5 +1,11 @@
 # @effect/contentlayer
 
+## 0.1.2
+
+### Patch Changes
+
+- [`46fd2f5`](https://github.com/Effect-TS/content/commit/46fd2f55c0bbfd6d9d64795d675ba5a6327e2633) Thanks [@tim-smart](https://github.com/tim-smart)! - relax unified processor types
+
 ## 0.1.1
 
 ### Patch Changes
