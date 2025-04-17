@@ -1,5 +1,11 @@
 # @effect/contentlayer
 
+## 0.1.5
+
+### Patch Changes
+
+- [`40b9d46`](https://github.com/Effect-TS/content/commit/40b9d461b415bfb27087a76fd9d74be1cc5bab7b) Thanks [@tim-smart](https://github.com/tim-smart)! - tweak worker pool settings
+
 ## 0.1.4
 
 ### Patch Changes
