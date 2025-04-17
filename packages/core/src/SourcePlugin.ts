@@ -98,7 +98,10 @@ export class UnifiedOutput extends Context.Tag("@effect/contentlayer/SourcePlugi
  *     .use(remarkStringify)
  *     .use(remarkFrontmatter)
  *     .use(remarkParseFrontmatter)
- *     .use(SourcePlugin.unifiedRemoveYaml)
+ *     .use(unifiedRemoveYaml)
+ *     .use(remarkRehype)
+ *     .use(rehypeFormat)
+ *     .use(rehypeStringify),
  * })
  * ```
  *

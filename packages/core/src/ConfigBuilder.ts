@@ -105,7 +105,8 @@ export const fromPath = Effect.fnUntraced(function*(
   const content = yield* Effect.orDie(fs.readFileString(outPath))
 
   const context = VM.createContext({
-    ...globalThis
+    ...globalThis,
+    process
   })
   context.require = Module.createRequire(entrypoint)
   context.module = { exports: {} }
