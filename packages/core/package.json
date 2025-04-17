@@ -1,9 +1,13 @@
 {
-  "name": "@effect/contentlayer-core",
+  "name": "@effect/contentlayer",
   "version": "0.0.0",
-  "type": "module",
   "license": "MIT",
+  "type": "module",
   "description": "",
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
   "repository": {
     "type": "git",
     "url": "",
@@ -11,38 +15,42 @@
   },
   "scripts": {
     "codegen": "build-utils prepare-v2",
-    "build": "pnpm build-esm && pnpm build-annotate && pnpm build-cjs && build-utils pack-v2",
-    "build-esm": "tsc -b tsconfig.build.json",
-    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
-    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
-    "dtslint": "dtslint dtslint",
+    "build": "tsup && pnpm build:dts && pnpm build:package",
+    "build:dts": "tsc -b tsconfig.build.json",
+    "build:package": "tsx scripts/copy-package-json.ts",
+    "build:watch": "pnpm build:package && pnpm --parallel build:watch:tsup build:watch:tsc",
+    "build:watch:tsup": "tsup --watch",
+    "build:watch:tsc": "tsc -b tsconfig.build.json --watch",
     "check": "tsc -b tsconfig.json",
     "test": "vitest",
     "coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@parcel/watcher": "^2.5.1",
+    "esbuild": "^0.25.2"
+  },
+  "devDependencies": {
+    "@effect/cli": "^0.59.10",
     "@effect/platform": "^0.80.10",
-    "@effect/platform-node": "^0.76.19",
-    "@effect/rpc": "^0.55.14",
+    "@effect/platform-node": "^0.76.20",
+    "@effect/rpc": "^0.55.15",
+    "@types/unist": "^3.0.3",
     "effect": "^3.14.10",
-    "esbuild": "^0.25.2",
     "glob": "^11.0.1",
     "minimatch": "^10.0.1",
     "rehype-format": "^5.0.1",
     "rehype-stringify": "^10.0.1",
+    "remark": "^15.0.1",
+    "remark-frontmatter": "^5.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-parse-frontmatter": "^1.0.3",
     "remark-rehype": "^11.1.2",
+    "remark-stringify": "^11.0.0",
+    "tsup": "^8.4.0",
     "typescript": "^5.8.3",
     "unified": "^11.0.5",
     "unist": "^0.0.1",
     "unist-util-remove": "^4.0.0",
     "vfile": "^6.0.3"
-  },
-  "devDependencies": {
-    "@types/unist": "^3.0.3",
-    "remark": "^15.0.1",
-    "remark-frontmatter": "^5.0.0",
-    "remark-parse": "^11.0.0",
-    "remark-parse-frontmatter": "^1.0.3",
-    "remark-stringify": "^11.0.0"
   }
 }

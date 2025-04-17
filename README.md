@@ -1,1 +1,3 @@
-# WIP
+# @effect/contentlayer
+
+WIP

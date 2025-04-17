@@ -8,7 +8,7 @@
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "codegen": "pnpm --recursive --parallel run codegen",
-    "build": "tsc -b tsconfig.build.json && pnpm --recursive --parallel run build",
+    "build": "pnpm --recursive --parallel run build",
     "circular": "node scripts/circular.mjs",
     "test": "vitest",
     "coverage": "vitest --coverage",
@@ -19,8 +19,8 @@
     "docgen": "pnpm --recursive --parallel exec docgen && node scripts/docs.mjs",
     "dtslint": "pnpm --recursive --parallel run dtslint",
     "dtslint-clean": "dtslint --installAll",
-    "changeset-version": "changeset version && node scripts/version.mjs",
-    "changeset-publish": "pnpm build && TEST_DIST= pnpm vitest && changeset publish"
+    "changeset-version": "changeset version",
+    "changeset-publish": "pnpm build && changeset publish"
   },
   "devDependencies": {
     "@babel/cli": "^7.27.0",
@@ -37,7 +37,7 @@
     "@effect/experimental": "^0.44.10",
     "@effect/language-service": "^0.6.2",
     "@effect/platform": "^0.80.10",
-    "@effect/platform-node": "^0.76.19",
+    "@effect/platform-node": "^0.76.20",
     "@types/node": "^22.14.1",
     "@typescript-eslint/eslint-plugin": "^8.30.1",
     "@typescript-eslint/parser": "^8.30.1",

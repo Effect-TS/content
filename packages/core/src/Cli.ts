@@ -1,14 +1,14 @@
 import * as Command from "@effect/cli/Command"
 import * as Options from "@effect/cli/Options"
-import * as ConfigBuilder from "@effect/contentlayer-core/ConfigBuilder"
-import { ContentCache } from "@effect/contentlayer-core/ContentCache"
-import * as DocumentBuilder from "@effect/contentlayer-core/DocumentBuilder"
-import * as DocumentStorage from "@effect/contentlayer-core/DocumentStorage"
-import { BuildOptions } from "@effect/contentlayer-core/Esbuild"
-import { WatchMode } from "@effect/contentlayer-core/References"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as ConfigBuilder from "./ConfigBuilder.ts"
+import { ContentCache } from "./ContentCache.ts"
+import * as DocumentBuilder from "./DocumentBuilder.ts"
+import * as DocumentStorage from "./DocumentStorage.ts"
+import { BuildOptions } from "./Esbuild.ts"
+import { WatchMode } from "./References.ts"
 
 const configPath = Options.file("config").pipe(
   Options.withAlias("c"),

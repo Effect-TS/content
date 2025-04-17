@@ -14,9 +14,7 @@ const config: UserConfig = {
   esbuild: {
     target: "es2020"
   },
-  optimizeDeps: {
-    exclude: ["bun:sqlite"]
-  },
+  optimizeDeps: {},
   test: {
     setupFiles: [path.join(__dirname, "setupTests.ts")],
     fakeTimers: {
@@ -27,7 +25,7 @@ const config: UserConfig = {
     },
     include: ["test/**/*.test.ts"],
     alias: {
-      ...alias("@effect/contentlayer-core")
+      ...alias("@effect/contentlayer")
     }
   }
 }

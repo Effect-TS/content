@@ -386,17 +386,18 @@ export const fileSystem = (options: {
       return false
     }
 
-    const initialEvents = paths.map((path) =>
-      EventAdded(
+    const initialEvents = paths.map((path) => {
+      const relativePath = path_.relative(cwd, path.fullpath())
+      return EventAdded(
         loadMeta(
           fs,
           path_,
-          path.fullpath(),
+          relativePath,
           path.mtime?.getTime() ?? 0
         ),
         true
       )
-    )
+    })
 
     if (watchMode) {
       const topLevelDirs = new Set<string>()
