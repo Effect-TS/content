@@ -204,7 +204,9 @@ export class ContentWorkerPool
     scoped: RpcClient.make(ContentWorkerSchema.Rpcs),
     dependencies: [
       RpcClient.layerProtocolWorker({
-        size: workerPoolSize,
+        minSize: Math.max(1, Math.floor(workerPoolSize / 2)),
+        maxSize: workerPoolSize,
+        timeToLive: "30 seconds",
         concurrency: 10
       }).pipe(
         Layer.provide(NodeWorker.layerPlatform(() => tsWorker("./ContentWorker")))
