@@ -32,8 +32,8 @@
   "devDependencies": {
     "@effect/cli": "^0.59.10",
     "@effect/platform": "^0.80.10",
-    "@effect/platform-node": "^0.76.19",
-    "@effect/rpc": "^0.55.14",
+    "@effect/platform-node": "^0.76.20",
+    "@effect/rpc": "^0.55.15",
     "@types/unist": "^3.0.3",
     "effect": "^3.14.10",
     "glob": "^11.0.1",
