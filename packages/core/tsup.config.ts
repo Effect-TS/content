@@ -4,6 +4,7 @@ export default defineConfig({
   entry: ["src/*.ts"],
   format: ["esm", "cjs"],
   tsconfig: "tsconfig.build.json",
+  external: ["effect"],
   shims: true,
   splitting: true,
   sourcemap: true,
