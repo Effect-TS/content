@@ -44,7 +44,8 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
       ),
       Layer.mergeAll(
         BuildOptions.Live({
-          bundle: false,
+          bundle: true,
+          external: ["@effect/contentlayer", "effect"],
           entryNames: "[name]-[hash]",
           entryPoints: [configPath],
           format: "cjs",
@@ -60,6 +61,6 @@ const command = Command.make("contentlayer", { configPath, watchMode }).pipe(
 )
 
 export const run = Command.run(command, {
-  name: "Contenlayer CLI",
+  name: "Contentlayer CLI",
   version: "0.0.0"
 })
