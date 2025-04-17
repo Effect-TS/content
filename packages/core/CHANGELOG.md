@@ -1,5 +1,15 @@
 # @effect/contentlayer
 
+## 0.1.4
+
+### Patch Changes
+
+- [`bad48e3`](https://github.com/Effect-TS/content/commit/bad48e335641a3ba9016158fd5e66dad74adb7c3) Thanks [@tim-smart](https://github.com/tim-smart)! - expose **filename & **dirname
+
+- [`2e84a4d`](https://github.com/Effect-TS/content/commit/2e84a4d6d03b36c31e03b589930f88ce22ccaa6c) Thanks [@tim-smart](https://github.com/tim-smart)! - ensure process is available in config
+
+- [#10](https://github.com/Effect-TS/content/pull/10) [`002fb1b`](https://github.com/Effect-TS/content/commit/002fb1b0d0fb07de648983ef8b5aeb4966ba9661) Thanks [@tim-smart](https://github.com/tim-smart)! - switch to esm builds for config
+
 ## 0.1.3
 
 ### Patch Changes
