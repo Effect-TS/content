@@ -1,7 +1,9 @@
 /**
  * @since 1.0.0
  */
+import * as OtlpTracer from "@effect/opentelemetry/OtlpTracer"
 import * as NodeContext from "@effect/platform-node/NodeContext"
+import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as NodeWorkerRunner from "@effect/platform-node/NodeWorkerRunner"
 import type { WorkerError } from "@effect/platform/WorkerError"
@@ -24,6 +26,8 @@ import * as Source from "./Source.ts"
 
 const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
   const storage = yield* DocumentStorage
+  const workerSpan = yield* Effect.makeSpanScoped("ContentWorker.Handlers")
+  const semaphore = yield* Effect.makeSemaphore(2)
 
   const configs = yield* RcMap.make({
     lookup: Effect.fnUntraced(function*(path: ContentWorkerSchema.ConfigPath) {
@@ -43,6 +47,10 @@ const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
             Stream.orDie,
             Stream.mapEffect(
               Effect.fnUntraced(function*(event) {
+                yield* Effect.annotateCurrentSpan({
+                  event: event._tag,
+                  eventId: event.id
+                })
                 if (event._tag !== "Added") return
                 const { output } = event
                 const decoded = yield* (Schema.decode(document.fields)(output.fields) as Effect.Effect<
@@ -81,6 +89,7 @@ const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
             ),
             Effect.forever,
             Effect.provideService(Source.WorkerEventStream, Mailbox.toStream(mailbox)),
+            Effect.withParentSpan(workerSpan),
             Effect.forkScoped,
             Effect.interruptible
           )
@@ -103,7 +112,15 @@ const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
       const process = (name: string, id: string, meta: unknown) =>
         RcMap.get(docProcessor, name).pipe(
           Effect.flatMap((process) => process(id, meta)),
-          Effect.scoped
+          Effect.scoped,
+          Effect.withSpan("ContentWorker.process", {
+            parent: workerSpan,
+            attributes: {
+              id,
+              meta
+            }
+          }),
+          semaphore.withPermits(1)
         )
 
       return { ...config, process } as const
@@ -148,6 +165,13 @@ const resolveComputedFields = (options: {
       )
   ) as Effect.Effect<Record<string, unknown>, ParseError>
 
+const TracerLayer = OtlpTracer.layer({
+  url: "http://localhost:4318/v1/traces",
+  resource: {
+    serviceName: "@effect/contentlayer/ContentWorker"
+  }
+}).pipe(Layer.provide(NodeHttpClient.layerUndici))
+
 /**
  * @since 1.0.0
  * @category Layers
@@ -155,7 +179,8 @@ const resolveComputedFields = (options: {
 export const layer: Layer.Layer<never, WorkerError> = RpcServer.layer(ContentWorkerSchema.Rpcs).pipe(
   Layer.provide(Handlers),
   Layer.provide(RpcServer.layerProtocolWorkerRunner),
-  Layer.provide(NodeWorkerRunner.layer)
+  Layer.provide(NodeWorkerRunner.layer),
+  Layer.provide(TracerLayer)
 )
 
 Layer.launch(layer).pipe(
