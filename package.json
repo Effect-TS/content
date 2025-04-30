@@ -1,7 +1,7 @@
 {
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@9.5.0",
+  "packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39",
   "workspaces": [
     "packages/*"
   ],
@@ -48,7 +48,7 @@
     "babel-plugin-annotate-pure-calls": "^0.5.0",
     "effect": "^3.14.16",
     "eslint": "^8.57.1",
-    "eslint-import-resolver-typescript": "^3.10.0",
+    "eslint-import-resolver-typescript": "^3.10.1",
     "eslint-plugin-codegen": "^0.30.0",
     "eslint-plugin-deprecation": "^3.0.0",
     "eslint-plugin-import": "^2.31.0",

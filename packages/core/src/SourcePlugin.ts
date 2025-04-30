@@ -36,23 +36,20 @@ export const make = <E2, Meta, Context, Context2>(
       return self.events as Stream.Stream<Source.Event<Meta, Context2>, E | E2>
     }
 
-    const latch = yield* Effect.makeLatch(true)
     const mailbox = yield* Mailbox.make<Source.Output<Meta, Context>>()
     const events = yield* Mailbox.make<Source.Event<Meta, Context2>, E | E2>()
     let initial = true
 
     yield* self.events.pipe(
-      Stream.mapEffect(Effect.fnUntraced(function*(event) {
-        yield* latch.await
+      Stream.mapEffect((event) => {
         if (event._tag === "Removed") {
-          return yield* events.offer(event)
+          return events.offer(event)
         }
         if (initial && !event.initial) {
           initial = false
         }
-        yield* mailbox.offer(event.output)
-        latch.unsafeClose()
-      })),
+        return mailbox.offer(event.output)
+      }),
       Stream.runDrain,
       Effect.onExit((exit) => exit._tag === "Success" ? mailbox.end : events.failCause(exit.cause)),
       Effect.interruptible,
@@ -60,11 +57,7 @@ export const make = <E2, Meta, Context, Context2>(
     )
 
     yield* f(Mailbox.toStream(mailbox)).pipe(
-      Stream.runForEach((output) =>
-        events.offer(Source.EventAdded(output, initial)).pipe(
-          Effect.andThen(latch.open)
-        )
-      ),
+      Stream.runForEach((output) => events.offer(Source.EventAdded(output, initial))),
       Mailbox.into(events),
       Effect.interruptible,
       Effect.forkScoped

@@ -130,8 +130,15 @@ export const run = Effect.gen(function*() {
             ),
             Stream.let("output", ({ event }) => event.output),
             Stream.mapEffect(
-              Effect.fnUntraced(
+              Effect.fn("DocumentBuilder.process")(
                 function*({ document, event, output }) {
+                  yield* Effect.annotateCurrentSpan({
+                    documentType: document.name,
+                    documentId: output.id,
+                    event: event._tag,
+                    eventInitial: event.initial
+                  })
+
                   const cached = event.initial && cache.exists(output.id, output.version)
                   if (!cached) {
                     yield* worker.ProcessDocument({
@@ -190,6 +197,7 @@ export const run = Effect.gen(function*() {
       { switch: true }
     ),
     Stream.runDrain,
+    Effect.withSpan("DocumentBuilder.run"),
     BuildError.catchAndLog,
     Effect.catchAllCause(Effect.logError)
   )
@@ -207,7 +215,7 @@ export class ContentWorkerPool
         minSize: Math.max(1, Math.floor(workerPoolSize / 2)),
         maxSize: workerPoolSize,
         timeToLive: "30 seconds",
-        concurrency: 10
+        concurrency: 15
       }).pipe(
         Layer.provide(NodeWorker.layerPlatform(() => tsWorker("./ContentWorker")))
       )
