@@ -39,20 +39,20 @@
   },
   "dependencies": {
     "@parcel/watcher": "^2.5.1",
-    "esbuild": "^0.25.2",
+    "esbuild": "^0.25.3",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {
     "effect": "^3.14"
   },
   "devDependencies": {
-    "@effect/cli": "^0.59.10",
-    "@effect/platform": "^0.80.10",
-    "@effect/platform-node": "^0.76.20",
-    "@effect/rpc": "^0.55.15",
+    "@effect/cli": "^0.59.16",
+    "@effect/platform": "^0.80.16",
+    "@effect/platform-node": "^0.77.4",
+    "@effect/rpc": "^0.56.4",
     "@types/unist": "^3.0.3",
-    "effect": "^3.14.10",
-    "glob": "^11.0.1",
+    "effect": "^3.14.16",
+    "glob": "^11.0.2",
     "minimatch": "^10.0.1",
     "tsup": "^8.4.0",
     "unist-util-remove": "^4.0.0",
