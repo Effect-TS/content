@@ -231,6 +231,6 @@ const tsWorker = (path: string) => {
   }
   const url = new URL(path + ".ts", import.meta.url)
   return new WT.Worker(url, {
-    execArgv: ["--experimental-strip-types"]
+    execArgv: ["--experimental-strip-types", "--no-warnings=ExperimentalWarning"]
   })
 }

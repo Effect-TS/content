@@ -11,7 +11,7 @@ import * as Option from "effect/Option"
 import * as Stream from "effect/Stream"
 import * as SubscriptionRef from "effect/SubscriptionRef"
 import * as Config from "./Config.ts"
-import { ContentlayerError } from "./ContentlayerError.js"
+import { ContentlayerError } from "./ContentlayerError.ts"
 import type { EsbuildSuccess } from "./Esbuild.ts"
 import { Esbuild } from "./Esbuild.ts"
 
