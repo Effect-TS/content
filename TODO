@@ -1,4 +1,5 @@
 - optimize
+  - try without workers
 - error messages
   - non-contentlayer errors
 - worker configuration

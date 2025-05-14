@@ -185,6 +185,24 @@ importers:
         version: 6.0.3
     publishDirectory: dist
 
+  packages/core/dist:
+    dependencies:
+      '@parcel/watcher':
+        specifier: ^2.5.1
+        version: 2.5.1
+      effect:
+        specifier: ^3.14
+        version: 3.15.1
+      esbuild:
+        specifier: ^0.25.4
+        version: 0.25.4
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      undici:
+        specifier: ^7.9.0
+        version: 7.9.0
+
 packages:
 
   '@ampproject/remapping@2.3.0':

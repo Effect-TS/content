@@ -27,7 +27,7 @@ import * as Source from "./Source.ts"
 const Handlers = ContentWorkerSchema.Rpcs.toLayer(Effect.gen(function*() {
   const storage = yield* DocumentStorage
   const workerSpan = yield* Effect.makeSpanScoped("ContentWorker.Handlers")
-  const semaphore = yield* Effect.makeSemaphore(2)
+  const semaphore = yield* Effect.makeSemaphore(3)
 
   const configs = yield* RcMap.make({
     lookup: Effect.fnUntraced(function*(path: ContentWorkerSchema.ConfigPath) {

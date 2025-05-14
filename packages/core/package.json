@@ -28,7 +28,7 @@
   "scripts": {
     "codegen": "build-utils prepare-v2",
     "build": "tsup && pnpm build:dts && pnpm build:package",
-    "build:dts": "tsc -b tsconfig.build.json",
+    "build:dts": "rm -f .tsbuildinfo/build.tsbuildinfo && tsc -b tsconfig.build.json",
     "build:package": "tsx scripts/copy-package-json.ts",
     "build:watch": "pnpm build:package && pnpm --parallel build:watch:tsup build:watch:tsc",
     "build:watch:tsup": "tsup --watch",
